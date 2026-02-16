@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 export default function ColorScaleEditor() {
   const canvasRef = useRef(null);
   const [cp1, setCp1] = useState({ x: 0.33, y: 0.00 });
-  const [cp2, setCp2] = useState({ x: 0.75, y: 0.75 });
+  const [cp2, setCp2] = useState({ x: 0.50, y: 0.60 });
   const [dragging, setDragging] = useState(null);
   const [colorScales, setColorScales] = useState([]);
   const [nextColorId, setNextColorId] = useState(0);
@@ -13,9 +13,10 @@ export default function ColorScaleEditor() {
   const [editingSwatch, setEditingSwatch] = useState({ scaleId: null, step: null });
   const [hoveredSwatch, setHoveredSwatch] = useState({ scaleId: null, index: null });
   const [grayScaleName, setGrayScaleName] = useState('gray');
+  const [numSwatches, setNumSwatches] = useState(12); // Number of visible swatches (excluding white and black)
   const miniCanvasRefs = useRef({});
 
-  const steps = 14; // Pure white + 12 swatches + pure black
+  const steps = numSwatches + 2; // Pure white + swatches + pure black
 
   // Cubic bezier function
   const cubicBezier = (t, p0, p1, p2, p3) => {
@@ -414,6 +415,11 @@ export default function ColorScaleEditor() {
     setDragging(null);
   };
 
+  const resetBezierPoints = () => {
+    setCp1({ x: 0.33, y: 0.00 });
+    setCp2({ x: 0.50, y: 0.60 });
+  };
+
   const addColorScale = () => {
     const newScale = {
       id: nextColorId,
@@ -431,7 +437,7 @@ export default function ColorScaleEditor() {
       hueShiftLight: 0,
       customSwatches: {},
       cp1: { x: 0.33, y: 0.00 },
-      cp2: { x: 0.75, y: 0.75 }
+      cp2: { x: 0.50, y: 0.60 }
     };
     setColorScales([...colorScales, newScale]);
     setNextColorId(nextColorId + 1);
@@ -847,9 +853,32 @@ export default function ColorScaleEditor() {
         <p className="text-gray-500 mb-8">Interactive bezier curve editor for perceptually uniform color scales</p>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-            Bezier Control Points
-          </label>
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex items-center gap-3">
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Bezier Control Points
+              </label>
+              <button
+                onClick={resetBezierPoints}
+                className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Swatches:
+              </label>
+              <input
+                type="number"
+                value={numSwatches}
+                onChange={(e) => setNumSwatches(Math.max(4, Math.min(20, parseInt(e.target.value) || 12)))}
+                min="4"
+                max="20"
+                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+              />
+            </div>
+          </div>
           <div className="flex gap-4">
             <div className="flex-1">
               <div className="flex gap-2 items-center">
@@ -936,7 +965,7 @@ export default function ColorScaleEditor() {
                 value={grayScaleName}
                 onChange={(e) => setGrayScaleName(e.target.value)}
                 placeholder="gray"
-                className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+                className="w-48 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
               />
               <div className="text-xs text-gray-500 mt-1">
                 Preview: {grayScaleName}-100, {grayScaleName}-200, ...
@@ -1008,7 +1037,10 @@ export default function ColorScaleEditor() {
             };
           }
 
-          // Apply custom swatches
+          // Remove white and black anchors and renumber to 100-1200
+          scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
+
+          // Apply custom swatches AFTER renumbering
           scale.forEach((swatch, i) => {
             if (cs.customSwatches[swatch.step]) {
               scale[i] = {
@@ -1018,9 +1050,6 @@ export default function ColorScaleEditor() {
               };
             }
           });
-
-          // Remove white and black anchors and renumber to 100-1200
-          scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
 
           return (
             <div key={cs.id} className="flex gap-6 mb-6">
@@ -1046,7 +1075,7 @@ export default function ColorScaleEditor() {
                     </button>
                   </div>
                 </div>
-                <div className="mb-4 grid grid-cols-2 gap-4">
+                <div className="mb-4 flex gap-4 items-start">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
                       Token Prefix
@@ -1056,7 +1085,7 @@ export default function ColorScaleEditor() {
                       value={cs.name}
                       onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
                       placeholder="color"
-                      className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+                      className="w-48 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
                     />
                     <div className="text-xs text-gray-500 mt-1">
                       Preview: {cs.name}-100, {cs.name}-200, ...
@@ -1066,12 +1095,28 @@ export default function ColorScaleEditor() {
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
                       Key Color
                     </label>
-                    <input
-                      type="color"
-                      value={cs.hex}
-                      onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
-                      className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
-                    />
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={cs.hex}
+                        onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
+                        className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
+                      />
+                      <div className="relative group">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cs.lockKeyColor}
+                            onChange={() => toggleLockKeyColor(cs.id)}
+                            className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                          />
+                          <span className="text-xs font-medium text-gray-400">Lock</span>
+                        </label>
+                        <div className="absolute left-0 top-full mt-1 px-2 py-1 bg-zinc-800 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 pointer-events-none z-10">
+                          Useful when exact brand color is needed
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="mb-4">
@@ -1215,7 +1260,7 @@ export default function ColorScaleEditor() {
                 </div>
                   </>
                 )}
-                <div className="mb-4 space-y-2">
+                <div className="mb-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1224,18 +1269,6 @@ export default function ColorScaleEditor() {
                       className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
                     />
                     <span className="text-xs font-medium text-gray-400">Use Custom Bezier Curve</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cs.lockKeyColor}
-                      onChange={() => toggleLockKeyColor(cs.id)}
-                      className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span className="text-xs font-medium text-gray-400">Lock Key Color Hex</span>
-                    {cs.lockKeyColor && (
-                      <span className="text-xs text-blue-400">🔒 {cs.hex}</span>
-                    )}
                   </label>
                 </div>
                 {cs.useCustomBezier && (
@@ -1336,28 +1369,36 @@ export default function ColorScaleEditor() {
                 <div className="grid grid-cols-6 gap-2">
                   {scale.map((v, i) => {
                     const isEditing = editingSwatch.scaleId === cs.id && editingSwatch.step === v.step;
+                    const isKeyColor = cs.lockKeyColor
+                      ? v.hex.toLowerCase() === cs.hex.toLowerCase()
+                      : i === keyColorIndex;
+                    const isLockedKeyColor = cs.lockKeyColor && isKeyColor;
                     return (
                       <div
                         key={i}
-                        className={`bg-black rounded-md p-2 text-center relative cursor-pointer hover:bg-zinc-900 transition-colors ${
-                          i === keyColorIndex
+                        className={`bg-black rounded-md p-2 text-center relative transition-colors ${
+                          isLockedKeyColor
+                            ? 'cursor-not-allowed'
+                            : 'cursor-pointer hover:bg-zinc-900'
+                        } ${
+                          isKeyColor
                             ? 'border-2 border-blue-500 shadow-lg shadow-blue-500/50'
                             : v.isCustom
                             ? 'border-2 border-amber-500'
                             : 'border border-zinc-800'
                         }`}
-                        onClick={() => setEditingSwatch({ scaleId: cs.id, step: v.step })}
+                        onClick={() => !isLockedKeyColor && setEditingSwatch({ scaleId: cs.id, step: v.step })}
                         onMouseEnter={() => setHoveredSwatch({ scaleId: cs.id, index: i })}
                         onMouseLeave={() => setHoveredSwatch({ scaleId: null, index: null })}
                       >
-                        {i === keyColorIndex && (
-                          <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                            <div className="w-2 h-2 bg-white rounded-full" />
+                        {isKeyColor && (
+                          <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-500 rounded flex items-center justify-center">
+                            <span className="material-symbols-rounded text-white text-[12px]">key</span>
                           </div>
                         )}
                         {v.isCustom && (
-                          <div className="absolute -top-2 -left-2 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
-                            <div className="text-[8px] text-black">✎</div>
+                          <div className="absolute -top-2 -left-2 w-5 h-5 bg-amber-500 rounded flex items-center justify-center">
+                            <span className="material-symbols-rounded text-black text-[12px]">edit</span>
                           </div>
                         )}
                         {isEditing ? (
@@ -1397,7 +1438,12 @@ export default function ColorScaleEditor() {
                           </div>
                         ) : (
                           <>
-                            <div className="text-xs text-gray-400 mb-1 font-mono">{cs.name}-{v.step}</div>
+                            <div className="text-xs text-gray-400 mb-1 font-mono flex items-center justify-center gap-1">
+                              {cs.name}-{v.step}
+                              {cs.lockKeyColor && isKeyColor && (
+                                <span className="material-symbols-rounded text-blue-400 text-[12px]">lock</span>
+                              )}
+                            </div>
                             <div className="text-xs font-mono text-gray-200 mb-0.5">{v.hex}</div>
                             <div className="text-[10px] text-gray-500">L* {v.lstar}</div>
                           </>
