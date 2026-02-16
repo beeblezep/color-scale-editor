@@ -11,6 +11,7 @@ export default function ColorScaleEditor() {
   const [comparisonLightSurface, setComparisonLightSurface] = useState(false);
   const [miniCanvasDragging, setMiniCanvasDragging] = useState({ id: null, point: null });
   const [editingSwatch, setEditingSwatch] = useState({ scaleId: null, step: null });
+  const [hoveredSwatch, setHoveredSwatch] = useState({ scaleId: null, index: null });
   const [grayScaleName, setGrayScaleName] = useState('gray');
   const miniCanvasRefs = useRef({});
 
@@ -421,6 +422,7 @@ export default function ColorScaleEditor() {
       lightSurface: false,
       useCustomBezier: false,
       lockKeyColor: false,
+      showAdvancedSettings: false,
       lstarMin: 0,
       lstarMax: 100,
       saturationMin: 100,
@@ -466,6 +468,12 @@ export default function ColorScaleEditor() {
   const toggleLockKeyColor = (id) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, lockKeyColor: !cs.lockKeyColor } : cs
+    ));
+  };
+
+  const toggleAdvancedSettings = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, showAdvancedSettings: !cs.showAdvancedSettings } : cs
     ));
   };
 
@@ -533,6 +541,24 @@ export default function ColorScaleEditor() {
       }
       return cs;
     }));
+  };
+
+  const resetLstarRange = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, lstarMin: 0, lstarMax: 100 } : cs
+    ));
+  };
+
+  const resetSaturationRange = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, saturationMin: 100, saturationMax: 100 } : cs
+    ));
+  };
+
+  const resetHueShift = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, hueShiftDark: 0, hueShiftLight: 0 } : cs
+    ));
   };
 
   const updateCustomSwatch = (id, step, hex) => {
@@ -916,17 +942,41 @@ export default function ColorScaleEditor() {
                 Preview: {grayScaleName}-100, {grayScaleName}-200, ...
               </div>
             </div>
-            <div
-              className="flex gap-0.5 h-16 rounded-lg overflow-hidden mb-4 p-4"
-              style={{ background: lightSurface ? '#ffffff' : '#000000' }}
-            >
-              {grayScale.map((v, i) => (
-                <div key={i} className="flex-1" style={{ background: v.hex }} />
-              ))}
+            <div className="relative mb-4">
+              <div
+                className="flex gap-0.5 h-16 rounded-lg overflow-hidden p-4"
+                style={{ background: lightSurface ? '#ffffff' : '#000000' }}
+              >
+                {grayScale.map((v, i) => (
+                  <div key={i} className="flex-1" style={{ background: v.hex }} />
+                ))}
+              </div>
+              {hoveredSwatch.scaleId === 'gray' && hoveredSwatch.index !== null && (
+                <div
+                  className="absolute top-0 bottom-0 pointer-events-none transition-all duration-200"
+                  style={{
+                    left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.125rem) / ${grayScale.length}))`,
+                    width: `calc((100% - 2rem + 0.125rem) / ${grayScale.length} - 0.125rem)`,
+                  }}
+                >
+                  <div
+                    className="w-full h-full border rounded transition-opacity duration-200"
+                    style={{
+                      borderColor: lightSurface ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.4)',
+                      boxShadow: lightSurface ? '0 0 8px rgba(0, 0, 0, 0.1)' : '0 0 8px rgba(255, 255, 255, 0.1)'
+                    }}
+                  />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-6 gap-2">
               {grayScale.map((v, i) => (
-                <div key={i} className="bg-black border border-zinc-800 rounded-md p-2 text-center">
+                <div
+                  key={i}
+                  className="bg-black border border-zinc-800 rounded-md p-2 text-center cursor-pointer hover:bg-zinc-900 transition-colors"
+                  onMouseEnter={() => setHoveredSwatch({ scaleId: 'gray', index: i })}
+                  onMouseLeave={() => setHoveredSwatch({ scaleId: null, index: null })}
+                >
                   <div className="text-xs text-gray-400 mb-1 font-mono">{grayScaleName}-{v.step}</div>
                   <div className="text-xs font-mono text-gray-200 mb-0.5">{v.hex}</div>
                   <div className="text-[10px] text-gray-500">L* {v.lstar}</div>
@@ -1024,23 +1074,32 @@ export default function ColorScaleEditor() {
                     />
                   </div>
                 </div>
-                <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    L* Range (Lightness Limits)
+                <div className="mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cs.showAdvancedSettings}
+                      onChange={() => toggleAdvancedSettings(cs.id)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <span className="text-xs font-medium text-gray-400">Show Advanced Settings</span>
                   </label>
+                </div>
+                {cs.showAdvancedSettings && (
+                  <>
+                <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      L* Range (Lightness Limits)
+                    </label>
+                    <button
+                      onClick={() => resetLstarRange(cs.id)}
+                      className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="95"
-                        value={cs.lstarMin}
-                        onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
-                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMin}</div>
-                    </div>
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
                       <input
@@ -1053,28 +1112,36 @@ export default function ColorScaleEditor() {
                       />
                       <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMax}</div>
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="95"
+                        value={cs.lstarMin}
+                        onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMin}</div>
+                    </div>
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
                     Adjust to avoid muddy colors at extremes (e.g., yellow works well at L* 20-90)
                   </div>
                 </div>
                 <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    Saturation Range
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Saturation Range
+                    </label>
+                    <button
+                      onClick={() => resetSaturationRange(cs.id)}
+                      className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={cs.saturationMin}
-                        onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
-                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMin}%</div>
-                    </div>
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
                       <input
@@ -1087,28 +1154,36 @@ export default function ColorScaleEditor() {
                       />
                       <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMax}%</div>
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={cs.saturationMin}
+                        onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMin}%</div>
+                    </div>
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
                     Percentage of base saturation to maintain (100% = full color, 0% = grayscale)
                   </div>
                 </div>
                 <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    Hue Shift
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Hue Shift
+                    </label>
+                    <button
+                      onClick={() => resetHueShift(cs.id)}
+                      className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Dark End</label>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={cs.hueShiftDark}
-                        onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
-                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftDark}°</div>
-                    </div>
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">Light End</label>
                       <input
@@ -1121,11 +1196,25 @@ export default function ColorScaleEditor() {
                       />
                       <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftLight}°</div>
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Dark End</label>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value={cs.hueShiftDark}
+                        onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftDark}°</div>
+                    </div>
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
                     Rotate hue at extremes (e.g., shift yellow toward orange in darks)
                   </div>
                 </div>
+                  </>
+                )}
                 <div className="mb-4 space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1217,13 +1306,32 @@ export default function ColorScaleEditor() {
                     </div>
                   </div>
                 )}
-                <div
-                  className="flex gap-0.5 h-16 rounded-lg overflow-hidden mb-4 p-4"
-                  style={{ background: cs.lightSurface ? '#ffffff' : '#000000' }}
-                >
-                  {scale.map((v, i) => (
-                    <div key={i} className="flex-1" style={{ background: v.hex }} />
-                  ))}
+                <div className="relative mb-4">
+                  <div
+                    className="flex gap-0.5 h-16 rounded-lg overflow-hidden p-4"
+                    style={{ background: cs.lightSurface ? '#ffffff' : '#000000' }}
+                  >
+                    {scale.map((v, i) => (
+                      <div key={i} className="flex-1" style={{ background: v.hex }} />
+                    ))}
+                  </div>
+                  {hoveredSwatch.scaleId === cs.id && hoveredSwatch.index !== null && (
+                    <div
+                      className="absolute top-0 bottom-0 pointer-events-none transition-all duration-200"
+                      style={{
+                        left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.125rem) / ${scale.length}))`,
+                        width: `calc((100% - 2rem + 0.125rem) / ${scale.length} - 0.125rem)`,
+                      }}
+                    >
+                      <div
+                        className="w-full h-full border rounded transition-opacity duration-200"
+                        style={{
+                          borderColor: cs.lightSurface ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.4)',
+                          boxShadow: cs.lightSurface ? '0 0 8px rgba(0, 0, 0, 0.1)' : '0 0 8px rgba(255, 255, 255, 0.1)'
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-6 gap-2">
                   {scale.map((v, i) => {
@@ -1239,6 +1347,8 @@ export default function ColorScaleEditor() {
                             : 'border border-zinc-800'
                         }`}
                         onClick={() => setEditingSwatch({ scaleId: cs.id, step: v.step })}
+                        onMouseEnter={() => setHoveredSwatch({ scaleId: cs.id, index: i })}
+                        onMouseLeave={() => setHoveredSwatch({ scaleId: null, index: null })}
                       >
                         {i === keyColorIndex && (
                           <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
