@@ -137,20 +137,28 @@ export default function ColorScaleEditor() {
   };
 
   // Get color at specific lightness
-  const getColorAtLightness = (baseHex, targetLstar) => {
+  const getColorAtLightness = (baseHex, targetLstar, lstarMin = 0, lstarMax = 100, saturationMin = 100, saturationMax = 100, hueShiftDark = 0, hueShiftLight = 0) => {
     const baseRgb = hexToRgb(baseHex);
     const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
 
     const targetL = targetLstar / 100;
 
-    let saturation = baseHsl.s;
-    if (targetL < 0.2) {
-      saturation *= (targetL / 0.2) * 0.8;
-    } else if (targetL > 0.9) {
-      saturation *= ((1 - targetL) / 0.1) * 0.6;
-    }
+    // Calculate position in scale (0 = light end, 1 = dark end)
+    const position = (lstarMax - targetLstar) / (lstarMax - lstarMin);
 
-    const rgb = hslToRgb(baseHsl.h, saturation, targetL);
+    // Apply saturation scaling based on position
+    // At light end (position 0): use saturationMax
+    // At dark end (position 1): use saturationMin
+    const saturationScale = (saturationMax - position * (saturationMax - saturationMin)) / 100;
+    let saturation = baseHsl.s * saturationScale;
+
+    // Apply hue shift based on position
+    // Interpolate between hueShiftLight (at position 0) and hueShiftDark (at position 1)
+    const hueShift = hueShiftLight + position * (hueShiftDark - hueShiftLight);
+    let hue = (baseHsl.h + hueShift) % 360;
+    if (hue < 0) hue += 360;
+
+    const rgb = hslToRgb(hue, saturation, targetL);
     return rgbToHex(rgb.r, rgb.g, rgb.b);
   };
 
@@ -170,7 +178,7 @@ export default function ColorScaleEditor() {
   };
 
   // Generate color scale
-  const generateColorScale = (baseHex, customCp1, customCp2) => {
+  const generateColorScale = (baseHex, customCp1, customCp2, lstarMin = 0, lstarMax = 100, saturationMin = 100, saturationMax = 100, hueShiftDark = 0, hueShiftLight = 0) => {
     const values = [];
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
@@ -178,8 +186,8 @@ export default function ColorScaleEditor() {
       const easedT = customCp1 && customCp2
         ? getBezierYWithPoints(t, customCp1, customCp2)
         : getBezierY(t);
-      const lstar = 100 - easedT * 100; // Range from L* 100 (light) to L* 0 (dark)
-      const hex = getColorAtLightness(baseHex, lstar);
+      const lstar = lstarMax - easedT * (lstarMax - lstarMin); // Custom L* range
+      const hex = getColorAtLightness(baseHex, lstar, lstarMin, lstarMax, saturationMin, saturationMax, hueShiftDark, hueShiftLight);
       const step = (i + 1) * 100;
       values.push({ step, hex, lstar: lstar.toFixed(1) });
     }
@@ -380,6 +388,12 @@ export default function ColorScaleEditor() {
       lightSurface: false,
       useCustomBezier: false,
       lockKeyColor: false,
+      lstarMin: 0,
+      lstarMax: 100,
+      saturationMin: 100,
+      saturationMax: 100,
+      hueShiftDark: 0,
+      hueShiftLight: 0,
       cp1: { x: 0.33, y: 0.00 },
       cp2: { x: 0.75, y: 0.75 }
     };
@@ -434,6 +448,48 @@ export default function ColorScaleEditor() {
           ...cs,
           [point]: { x, y }
         };
+      }
+      return cs;
+    }));
+  };
+
+  const updateLstarRange = (id, type, value) => {
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === id) {
+        const numValue = parseInt(value);
+        if (type === 'min') {
+          return { ...cs, lstarMin: Math.max(0, Math.min(numValue, cs.lstarMax - 5)) };
+        } else {
+          return { ...cs, lstarMax: Math.min(100, Math.max(numValue, cs.lstarMin + 5)) };
+        }
+      }
+      return cs;
+    }));
+  };
+
+  const updateSaturationRange = (id, type, value) => {
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === id) {
+        const numValue = parseInt(value);
+        if (type === 'min') {
+          return { ...cs, saturationMin: Math.max(0, Math.min(numValue, 100)) };
+        } else {
+          return { ...cs, saturationMax: Math.max(0, Math.min(numValue, 100)) };
+        }
+      }
+      return cs;
+    }));
+  };
+
+  const updateHueShift = (id, type, value) => {
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === id) {
+        const numValue = parseInt(value);
+        if (type === 'dark') {
+          return { ...cs, hueShiftDark: Math.max(-180, Math.min(180, numValue)) };
+        } else {
+          return { ...cs, hueShiftLight: Math.max(-180, Math.min(180, numValue)) };
+        }
       }
       return cs;
     }));
@@ -729,7 +785,13 @@ export default function ColorScaleEditor() {
           const scale = generateColorScale(
             cs.hex,
             cs.useCustomBezier ? cs.cp1 : null,
-            cs.useCustomBezier ? cs.cp2 : null
+            cs.useCustomBezier ? cs.cp2 : null,
+            cs.lstarMin,
+            cs.lstarMax,
+            cs.saturationMin,
+            cs.saturationMax,
+            cs.hueShiftDark,
+            cs.hueShiftLight
           );
           const keyColorIndex = findKeyColorIndex(scale, cs.hex);
 
@@ -775,6 +837,108 @@ export default function ColorScaleEditor() {
                     onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
                     className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
                   />
+                </div>
+                <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                    L* Range (Lightness Limits)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="95"
+                        value={cs.lstarMin}
+                        onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMin}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="100"
+                        value={cs.lstarMax}
+                        onChange={(e) => updateLstarRange(cs.id, 'max', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMax}</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Adjust to avoid muddy colors at extremes (e.g., yellow works well at L* 20-90)
+                  </div>
+                </div>
+                <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                    Saturation Range
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={cs.saturationMin}
+                        onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMin}%</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={cs.saturationMax}
+                        onChange={(e) => updateSaturationRange(cs.id, 'max', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMax}%</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Percentage of base saturation to maintain (100% = full color, 0% = grayscale)
+                  </div>
+                </div>
+                <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                    Hue Shift
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Dark End</label>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value={cs.hueShiftDark}
+                        onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftDark}°</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Light End</label>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value={cs.hueShiftLight}
+                        onChange={(e) => updateHueShift(cs.id, 'light', e.target.value)}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftLight}°</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Rotate hue at extremes (e.g., shift yellow toward orange in darks)
+                  </div>
                 </div>
                 <div className="mb-4 space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -939,7 +1103,13 @@ export default function ColorScaleEditor() {
                   const scale = generateColorScale(
                     cs.hex,
                     cs.useCustomBezier ? cs.cp1 : null,
-                    cs.useCustomBezier ? cs.cp2 : null
+                    cs.useCustomBezier ? cs.cp2 : null,
+                    cs.lstarMin,
+                    cs.lstarMax,
+                    cs.saturationMin,
+                    cs.saturationMax,
+                    cs.hueShiftDark,
+                    cs.hueShiftLight
                   );
 
                   // If key color is locked, replace the closest swatch with exact hex
