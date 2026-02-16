@@ -10,9 +10,11 @@ export default function ColorScaleEditor() {
   const [lightSurface, setLightSurface] = useState(false);
   const [comparisonLightSurface, setComparisonLightSurface] = useState(false);
   const [miniCanvasDragging, setMiniCanvasDragging] = useState({ id: null, point: null });
+  const [editingSwatch, setEditingSwatch] = useState({ scaleId: null, step: null });
+  const [grayScaleName, setGrayScaleName] = useState('gray');
   const miniCanvasRefs = useRef({});
 
-  const steps = 12;
+  const steps = 14; // Pure white + 12 swatches + pure black
 
   // Cubic bezier function
   const cubicBezier = (t, p0, p1, p2, p3) => {
@@ -166,11 +168,26 @@ export default function ColorScaleEditor() {
   const generateGrayScale = () => {
     const values = [];
     for (let i = 0; i < steps; i++) {
-      const t = i / (steps - 1);
-      const easedT = getBezierY(t);
-      const lstar = 100 - easedT * 100; // Range from L* 100 (white) to L* 0 (black)
-      const rgb = lstarToRgb(lstar);
-      const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+      let hex, lstar;
+
+      if (i === 0) {
+        // First swatch: pure white
+        hex = '#ffffff';
+        lstar = 100;
+      } else if (i === steps - 1) {
+        // Last swatch: pure black
+        hex = '#000000';
+        lstar = 0;
+      } else {
+        // Middle 12 swatches: generated using bezier curve
+        // Map to avoid pure white/black (use 1/13 to 12/13 range)
+        const t = i / (steps - 1);
+        const easedT = getBezierY(t);
+        lstar = 100 - easedT * 100;
+        const rgb = lstarToRgb(lstar);
+        hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+      }
+
       const step = (i + 1) * 100;
       values.push({ step, hex, lstar: lstar.toFixed(1) });
     }
@@ -181,13 +198,28 @@ export default function ColorScaleEditor() {
   const generateColorScale = (baseHex, customCp1, customCp2, lstarMin = 0, lstarMax = 100, saturationMin = 100, saturationMax = 100, hueShiftDark = 0, hueShiftLight = 0) => {
     const values = [];
     for (let i = 0; i < steps; i++) {
-      const t = i / (steps - 1);
-      // Use custom bezier points if provided, otherwise use global
-      const easedT = customCp1 && customCp2
-        ? getBezierYWithPoints(t, customCp1, customCp2)
-        : getBezierY(t);
-      const lstar = lstarMax - easedT * (lstarMax - lstarMin); // Custom L* range
-      const hex = getColorAtLightness(baseHex, lstar, lstarMin, lstarMax, saturationMin, saturationMax, hueShiftDark, hueShiftLight);
+      let hex, lstar;
+
+      if (i === 0) {
+        // First swatch: pure white
+        hex = '#ffffff';
+        lstar = 100;
+      } else if (i === steps - 1) {
+        // Last swatch: pure black
+        hex = '#000000';
+        lstar = 0;
+      } else {
+        // Middle 12 swatches: generated using bezier curve
+        // Map to avoid pure white/black (use 1/13 to 12/13 range)
+        const t = i / (steps - 1);
+        // Use custom bezier points if provided, otherwise use global
+        const easedT = customCp1 && customCp2
+          ? getBezierYWithPoints(t, customCp1, customCp2)
+          : getBezierY(t);
+        lstar = lstarMax - easedT * (lstarMax - lstarMin); // Custom L* range
+        hex = getColorAtLightness(baseHex, lstar, lstarMin, lstarMax, saturationMin, saturationMax, hueShiftDark, hueShiftLight);
+      }
+
       const step = (i + 1) * 100;
       values.push({ step, hex, lstar: lstar.toFixed(1) });
     }
@@ -384,6 +416,7 @@ export default function ColorScaleEditor() {
   const addColorScale = () => {
     const newScale = {
       id: nextColorId,
+      name: `color-${nextColorId + 1}`,
       hex: '#3b82f6',
       lightSurface: false,
       useCustomBezier: false,
@@ -394,6 +427,7 @@ export default function ColorScaleEditor() {
       saturationMax: 100,
       hueShiftDark: 0,
       hueShiftLight: 0,
+      customSwatches: {},
       cp1: { x: 0.33, y: 0.00 },
       cp2: { x: 0.75, y: 0.75 }
     };
@@ -408,6 +442,12 @@ export default function ColorScaleEditor() {
   const updateColorScaleHex = (id, hex) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, hex } : cs
+    ));
+  };
+
+  const updateColorScaleName = (id, name) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, name } : cs
     ));
   };
 
@@ -490,6 +530,29 @@ export default function ColorScaleEditor() {
         } else {
           return { ...cs, hueShiftLight: Math.max(-180, Math.min(180, numValue)) };
         }
+      }
+      return cs;
+    }));
+  };
+
+  const updateCustomSwatch = (id, step, hex) => {
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === id) {
+        return {
+          ...cs,
+          customSwatches: { ...cs.customSwatches, [step]: hex }
+        };
+      }
+      return cs;
+    }));
+  };
+
+  const resetCustomSwatch = (id, step) => {
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === id) {
+        const newCustomSwatches = { ...cs.customSwatches };
+        delete newCustomSwatches[step];
+        return { ...cs, customSwatches: newCustomSwatches };
       }
       return cs;
     }));
@@ -672,7 +735,84 @@ export default function ColorScaleEditor() {
     });
   }, [colorScales]);
 
-  const grayScale = generateGrayScale();
+  const grayScale = generateGrayScale()
+    .slice(1, -1) // Remove white and black anchors
+    .map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 })); // Renumber to 100-1200
+
+  // Export to Figma Tokens format
+  const exportToFigmaTokens = () => {
+    const tokens = {
+      color: {}
+    };
+
+    // Add gray scale
+    tokens.color[grayScaleName] = {};
+    grayScale.forEach(swatch => {
+      tokens.color[grayScaleName][swatch.step] = {
+        value: swatch.hex,
+        type: "color"
+      };
+    });
+
+    // Add color scales
+    colorScales.forEach(cs => {
+      let scale = generateColorScale(
+        cs.hex,
+        cs.useCustomBezier ? cs.cp1 : null,
+        cs.useCustomBezier ? cs.cp2 : null,
+        cs.lstarMin,
+        cs.lstarMax,
+        cs.saturationMin,
+        cs.saturationMax,
+        cs.hueShiftDark,
+        cs.hueShiftLight
+      );
+
+      const keyColorIndex = findKeyColorIndex(scale, cs.hex);
+
+      // If key color is locked, replace the closest swatch with exact hex
+      if (cs.lockKeyColor && keyColorIndex >= 0) {
+        scale[keyColorIndex] = {
+          ...scale[keyColorIndex],
+          hex: cs.hex
+        };
+      }
+
+      // Apply custom swatches
+      scale.forEach((swatch, i) => {
+        if (cs.customSwatches[swatch.step]) {
+          scale[i] = {
+            ...swatch,
+            hex: cs.customSwatches[swatch.step],
+            isCustom: true
+          };
+        }
+      });
+
+      // Remove white and black anchors and renumber to 100-1200
+      scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
+
+      tokens.color[cs.name] = {};
+      scale.forEach(swatch => {
+        tokens.color[cs.name][swatch.step] = {
+          value: swatch.hex,
+          type: "color"
+        };
+      });
+    });
+
+    // Create and download JSON file
+    const jsonString = JSON.stringify(tokens, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'figma-tokens.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-screen bg-black text-gray-200 p-8">
@@ -761,6 +901,21 @@ export default function ColorScaleEditor() {
                 {lightSurface ? 'Light Surface' : 'Dark Surface'}
               </button>
             </div>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                Token Prefix
+              </label>
+              <input
+                type="text"
+                value={grayScaleName}
+                onChange={(e) => setGrayScaleName(e.target.value)}
+                placeholder="gray"
+                className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                Preview: {grayScaleName}-100, {grayScaleName}-200, ...
+              </div>
+            </div>
             <div
               className="flex gap-0.5 h-16 rounded-lg overflow-hidden mb-4 p-4"
               style={{ background: lightSurface ? '#ffffff' : '#000000' }}
@@ -772,7 +927,7 @@ export default function ColorScaleEditor() {
             <div className="grid grid-cols-6 gap-2">
               {grayScale.map((v, i) => (
                 <div key={i} className="bg-black border border-zinc-800 rounded-md p-2 text-center">
-                  <div className="text-xs text-gray-600 mb-1">{v.step}</div>
+                  <div className="text-xs text-gray-400 mb-1 font-mono">{grayScaleName}-{v.step}</div>
                   <div className="text-xs font-mono text-gray-200 mb-0.5">{v.hex}</div>
                   <div className="text-[10px] text-gray-500">L* {v.lstar}</div>
                 </div>
@@ -782,7 +937,7 @@ export default function ColorScaleEditor() {
         </div>
 
         {colorScales.map((cs) => {
-          const scale = generateColorScale(
+          let scale = generateColorScale(
             cs.hex,
             cs.useCustomBezier ? cs.cp1 : null,
             cs.useCustomBezier ? cs.cp2 : null,
@@ -802,6 +957,20 @@ export default function ColorScaleEditor() {
               hex: cs.hex
             };
           }
+
+          // Apply custom swatches
+          scale.forEach((swatch, i) => {
+            if (cs.customSwatches[swatch.step]) {
+              scale[i] = {
+                ...swatch,
+                hex: cs.customSwatches[swatch.step],
+                isCustom: true
+              };
+            }
+          });
+
+          // Remove white and black anchors and renumber to 100-1200
+          scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
 
           return (
             <div key={cs.id} className="flex gap-6 mb-6">
@@ -827,16 +996,33 @@ export default function ColorScaleEditor() {
                     </button>
                   </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    Key Color
-                  </label>
-                  <input
-                    type="color"
-                    value={cs.hex}
-                    onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
-                    className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
-                  />
+                <div className="mb-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      Token Prefix
+                    </label>
+                    <input
+                      type="text"
+                      value={cs.name}
+                      onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
+                      placeholder="color"
+                      className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      Preview: {cs.name}-100, {cs.name}-200, ...
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      Key Color
+                    </label>
+                    <input
+                      type="color"
+                      value={cs.hex}
+                      onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
+                      className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
+                    />
+                  </div>
                 </div>
                 <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
@@ -1040,25 +1226,75 @@ export default function ColorScaleEditor() {
                   ))}
                 </div>
                 <div className="grid grid-cols-6 gap-2">
-                  {scale.map((v, i) => (
-                    <div
-                      key={i}
-                      className={`bg-black rounded-md p-2 text-center relative ${
-                        i === keyColorIndex
-                          ? 'border-2 border-blue-500 shadow-lg shadow-blue-500/50'
-                          : 'border border-zinc-800'
-                      }`}
-                    >
-                      {i === keyColorIndex && (
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white rounded-full" />
-                        </div>
-                      )}
-                      <div className="text-xs text-gray-600 mb-1">{v.step}</div>
-                      <div className="text-xs font-mono text-gray-200 mb-0.5">{v.hex}</div>
-                      <div className="text-[10px] text-gray-500">L* {v.lstar}</div>
-                    </div>
-                  ))}
+                  {scale.map((v, i) => {
+                    const isEditing = editingSwatch.scaleId === cs.id && editingSwatch.step === v.step;
+                    return (
+                      <div
+                        key={i}
+                        className={`bg-black rounded-md p-2 text-center relative cursor-pointer hover:bg-zinc-900 transition-colors ${
+                          i === keyColorIndex
+                            ? 'border-2 border-blue-500 shadow-lg shadow-blue-500/50'
+                            : v.isCustom
+                            ? 'border-2 border-amber-500'
+                            : 'border border-zinc-800'
+                        }`}
+                        onClick={() => setEditingSwatch({ scaleId: cs.id, step: v.step })}
+                      >
+                        {i === keyColorIndex && (
+                          <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                          </div>
+                        )}
+                        {v.isCustom && (
+                          <div className="absolute -top-2 -left-2 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                            <div className="text-[8px] text-black">✎</div>
+                          </div>
+                        )}
+                        {isEditing ? (
+                          <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                            <div className="text-xs text-gray-400 mb-1 font-mono">{cs.name}-{v.step}</div>
+                            <input
+                              type="color"
+                              value={v.hex}
+                              onChange={(e) => updateCustomSwatch(cs.id, v.step, e.target.value)}
+                              className="w-full h-6 border border-zinc-700 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={v.hex}
+                              onChange={(e) => updateCustomSwatch(cs.id, v.step, e.target.value)}
+                              className="w-full px-1 py-0.5 text-[10px] font-mono bg-zinc-900 border border-zinc-700 rounded focus:outline-none focus:border-zinc-600"
+                            />
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => setEditingSwatch({ scaleId: null, step: null })}
+                                className="flex-1 px-1 py-0.5 bg-zinc-700 hover:bg-zinc-600 rounded text-[9px] text-white"
+                              >
+                                Done
+                              </button>
+                              {v.isCustom && (
+                                <button
+                                  onClick={() => {
+                                    resetCustomSwatch(cs.id, v.step);
+                                    setEditingSwatch({ scaleId: null, step: null });
+                                  }}
+                                  className="flex-1 px-1 py-0.5 bg-amber-600 hover:bg-amber-700 rounded text-[9px] text-white"
+                                >
+                                  Reset
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-xs text-gray-400 mb-1 font-mono">{cs.name}-{v.step}</div>
+                            <div className="text-xs font-mono text-gray-200 mb-0.5">{v.hex}</div>
+                            <div className="text-[10px] text-gray-500">L* {v.lstar}</div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1100,7 +1336,7 @@ export default function ColorScaleEditor() {
                 </div>
                 {/* Color Scales */}
                 {colorScales.map((cs) => {
-                  const scale = generateColorScale(
+                  let scale = generateColorScale(
                     cs.hex,
                     cs.useCustomBezier ? cs.cp1 : null,
                     cs.useCustomBezier ? cs.cp2 : null,
@@ -1122,6 +1358,9 @@ export default function ColorScaleEditor() {
                       };
                     }
                   }
+
+                  // Remove white and black anchors and renumber to 100-1200
+                  scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
 
                   return (
                     <div key={cs.id} className="flex items-center gap-2">
@@ -1147,12 +1386,20 @@ export default function ColorScaleEditor() {
           </div>
         )}
 
-        <button
-          onClick={addColorScale}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
-        >
-          + Add Color Scale
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={addColorScale}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
+          >
+            + Add Color Scale
+          </button>
+          <button
+            onClick={exportToFigmaTokens}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-medium text-white transition-colors"
+          >
+            Export to Figma Tokens
+          </button>
+        </div>
       </div>
     </div>
   );
