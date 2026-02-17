@@ -14,6 +14,7 @@ export default function ColorScaleEditor() {
   const [hoveredSwatch, setHoveredSwatch] = useState({ scaleId: null, index: null });
   const [grayScaleName, setGrayScaleName] = useState('gray');
   const [numSwatches, setNumSwatches] = useState(12); // Number of visible swatches (excluding white and black)
+  const [harmonyPreview, setHarmonyPreview] = useState(null);
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -420,6 +421,131 @@ export default function ColorScaleEditor() {
     setCp2({ x: 0.50, y: 0.60 });
   };
 
+  const hueRanges = {
+    red: { min: 0, max: 15, mid: 0 },
+    orange: { min: 15, max: 45, mid: 30 },
+    yellow: { min: 45, max: 75, mid: 60 },
+    chartreuse: { min: 75, max: 105, mid: 90 },
+    green: { min: 105, max: 165, mid: 135 },
+    cyan: { min: 165, max: 195, mid: 180 },
+    blue: { min: 195, max: 255, mid: 225 },
+    purple: { min: 255, max: 285, mid: 270 },
+    magenta: { min: 285, max: 330, mid: 310 },
+    pink: { min: 330, max: 360, mid: 345 }
+  };
+
+  const calculateHarmoniousColor = (baseColorId, targetHueFamily, harmonyModel) => {
+    const baseScale = colorScales.find(cs => cs.id === baseColorId);
+    if (!baseScale) return;
+
+    // Get HSL values from base color
+    const baseRgb = hexToRgb(baseScale.hex);
+    const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+
+    let targetHue;
+    let colorName = targetHueFamily;
+
+    // Calculate target hue based on harmony model
+    switch(harmonyModel) {
+      case 'monochromatic':
+        // Use selected hue family
+        const hueRange = hueRanges[targetHueFamily];
+        targetHue = hueRange.mid;
+        break;
+      case 'complementary':
+        // Opposite on color wheel (180°)
+        targetHue = (baseHsl.h + 180) % 360;
+        colorName = 'complementary';
+        break;
+      case 'analogous-warm':
+        // 30° warmer (counter-clockwise)
+        targetHue = (baseHsl.h + 30) % 360;
+        colorName = 'analogous-warm';
+        break;
+      case 'analogous-cool':
+        // 30° cooler (clockwise)
+        targetHue = (baseHsl.h - 30 + 360) % 360;
+        colorName = 'analogous-cool';
+        break;
+      case 'triadic-1':
+        // 120° offset
+        targetHue = (baseHsl.h + 120) % 360;
+        colorName = 'triadic-1';
+        break;
+      case 'triadic-2':
+        // 240° offset
+        targetHue = (baseHsl.h + 240) % 360;
+        colorName = 'triadic-2';
+        break;
+      case 'split-complementary-1':
+        // 150° offset
+        targetHue = (baseHsl.h + 150) % 360;
+        colorName = 'split-comp-1';
+        break;
+      case 'split-complementary-2':
+        // 210° offset
+        targetHue = (baseHsl.h + 210) % 360;
+        colorName = 'split-comp-2';
+        break;
+      default:
+        targetHue = baseHsl.h;
+    }
+
+    // Create new color with target hue but matching saturation and lightness
+    const newRgb = hslToRgb(targetHue, baseHsl.s, baseHsl.l);
+    const newHex = rgbToHex(newRgb.r, newRgb.g, newRgb.b);
+
+    return { newHex, colorName, baseScale };
+  };
+
+  const addHarmoniousColor = (baseColorId, targetHueFamily, harmonyModel) => {
+    const result = calculateHarmoniousColor(baseColorId, targetHueFamily, harmonyModel);
+    if (!result) return;
+
+    const { newHex, colorName, baseScale } = result;
+
+    // Add as new color scale
+    const newScale = {
+      id: nextColorId,
+      name: `${colorName}-${nextColorId + 1}`,
+      hex: newHex,
+      lightSurface: false,
+      useCustomBezier: false,
+      lockKeyColor: false,
+      showAdvancedSettings: false,
+      lstarMin: baseScale.lstarMin,
+      lstarMax: baseScale.lstarMax,
+      saturationMin: baseScale.saturationMin,
+      saturationMax: baseScale.saturationMax,
+      hueShiftDark: baseScale.hueShiftDark,
+      hueShiftLight: baseScale.hueShiftLight,
+      customSwatches: {},
+      cp1: baseScale.useCustomBezier ? baseScale.cp1 : { x: 0.33, y: 0.00 },
+      cp2: baseScale.useCustomBezier ? baseScale.cp2 : { x: 0.50, y: 0.60 }
+    };
+    setColorScales([...colorScales, newScale]);
+    setNextColorId(nextColorId + 1);
+  };
+
+  const updateHarmonyPreview = () => {
+    const baseIdEl = document.getElementById('baseColorSelect');
+    const harmonyModelEl = document.getElementById('harmonyModelSelect');
+    const targetHueEl = document.getElementById('targetHueSelect');
+
+    if (!baseIdEl || !harmonyModelEl || !targetHueEl) return;
+
+    const baseId = parseInt(baseIdEl.value);
+    const harmonyModel = harmonyModelEl.value;
+    const targetHue = targetHueEl.value;
+
+    if (!baseId && baseId !== 0) return;
+
+    const result = calculateHarmoniousColor(baseId, targetHue, harmonyModel);
+    if (result) {
+      setHarmonyPreview(result.newHex);
+    }
+  };
+
   const addColorScale = () => {
     const newScale = {
       id: nextColorId,
@@ -445,6 +571,18 @@ export default function ColorScaleEditor() {
 
   const removeColorScale = (id) => {
     setColorScales(colorScales.filter(cs => cs.id !== id));
+  };
+
+  const moveColorScale = (id, direction) => {
+    const index = colorScales.findIndex(cs => cs.id === id);
+    if (index === -1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= colorScales.length) return;
+
+    const newScales = [...colorScales];
+    [newScales[index], newScales[newIndex]] = [newScales[newIndex], newScales[index]];
+    setColorScales(newScales);
   };
 
   const updateColorScaleHex = (id, hex) => {
@@ -564,6 +702,12 @@ export default function ColorScaleEditor() {
   const resetHueShift = (id) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, hueShiftDark: 0, hueShiftLight: 0 } : cs
+    ));
+  };
+
+  const resetCustomBezier = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, cp1: { ...cp1 }, cp2: { ...cp2 } } : cs
     ));
   };
 
@@ -766,6 +910,14 @@ export default function ColorScaleEditor() {
       }
     });
   }, [colorScales]);
+
+  // Initialize harmony preview when color scales change
+  useEffect(() => {
+    if (colorScales.length > 0) {
+      // Small delay to ensure DOM elements are ready
+      setTimeout(updateHarmonyPreview, 0);
+    }
+  }, [colorScales.length]);
 
   const grayScale = generateGrayScale()
     .slice(1, -1) // Remove white and black anchors
@@ -1015,7 +1167,7 @@ export default function ColorScaleEditor() {
           </div>
         </div>
 
-        {colorScales.map((cs) => {
+        {colorScales.map((cs, scaleIndex) => {
           let scale = generateColorScale(
             cs.hex,
             cs.useCustomBezier ? cs.cp1 : null,
@@ -1057,6 +1209,32 @@ export default function ColorScaleEditor() {
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-semibold text-white">Color Scale</h2>
                   <div className="flex gap-2">
+                    <div className="flex gap-1 border border-zinc-700 rounded-md overflow-hidden">
+                      <button
+                        onClick={() => moveColorScale(cs.id, 'up')}
+                        disabled={scaleIndex === 0}
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${
+                          scaleIndex === 0
+                            ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                            : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                        }`}
+                        title="Move up"
+                      >
+                        <span className="material-symbols-rounded text-[16px]">arrow_upward</span>
+                      </button>
+                      <button
+                        onClick={() => moveColorScale(cs.id, 'down')}
+                        disabled={scaleIndex === colorScales.length - 1}
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${
+                          scaleIndex === colorScales.length - 1
+                            ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                            : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                        }`}
+                        title="Move down"
+                      >
+                        <span className="material-symbols-rounded text-[16px]">arrow_downward</span>
+                      </button>
+                    </div>
                     <button
                       onClick={() => toggleColorScaleSurface(cs.id)}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
@@ -1273,6 +1451,17 @@ export default function ColorScaleEditor() {
                 </div>
                 {cs.useCustomBezier && (
                   <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Custom Bezier Curve
+                      </label>
+                      <button
+                        onClick={() => resetCustomBezier(cs.id)}
+                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        Reset to Global
+                      </button>
+                    </div>
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
                         <canvas
@@ -1537,6 +1726,103 @@ export default function ColorScaleEditor() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {colorScales.length > 0 && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-3">Add Harmonious Color</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Generate a color that harmonizes with an existing color using color theory
+            </p>
+            <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                  Base Color
+                </label>
+                <select
+                  id="baseColorSelect"
+                  className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
+                  onChange={updateHarmonyPreview}
+                >
+                  {colorScales.map(cs => (
+                    <option key={cs.id} value={cs.id}>
+                      {cs.name} ({cs.hex})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                  Harmony Model
+                </label>
+                <select
+                  id="harmonyModelSelect"
+                  className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
+                  onChange={(e) => {
+                    const hueSelect = document.getElementById('targetHueSelect');
+                    hueSelect.style.display = e.target.value === 'monochromatic' ? 'block' : 'none';
+                    hueSelect.parentElement.style.display = e.target.value === 'monochromatic' ? 'block' : 'none';
+                    updateHarmonyPreview();
+                  }}
+                >
+                  <option value="monochromatic">Monochromatic (choose hue)</option>
+                  <option value="complementary">Complementary (opposite)</option>
+                  <option value="analogous-warm">Analogous (warmer)</option>
+                  <option value="analogous-cool">Analogous (cooler)</option>
+                  <option value="triadic-1">Triadic (120°)</option>
+                  <option value="triadic-2">Triadic (240°)</option>
+                  <option value="split-complementary-1">Split-Complementary (150°)</option>
+                  <option value="split-complementary-2">Split-Complementary (210°)</option>
+                </select>
+              </div>
+              <div className="flex-1 min-w-[200px]" id="hueContainer">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                  Target Hue Family
+                </label>
+                <select
+                  id="targetHueSelect"
+                  className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
+                  onChange={updateHarmonyPreview}
+                >
+                  <option value="red">Red (negative/error)</option>
+                  <option value="orange">Orange (warning)</option>
+                  <option value="yellow">Yellow (caution)</option>
+                  <option value="chartreuse">Chartreuse</option>
+                  <option value="green">Green (success/positive)</option>
+                  <option value="cyan">Cyan (info)</option>
+                  <option value="blue">Blue</option>
+                  <option value="purple">Purple</option>
+                  <option value="magenta">Magenta</option>
+                  <option value="pink">Pink</option>
+                </select>
+              </div>
+              <div className="flex items-end gap-3">
+                {harmonyPreview && (
+                  <div className="flex flex-col items-center gap-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Preview
+                    </label>
+                    <div
+                      className="w-16 h-10 rounded-md border-2 border-zinc-600"
+                      style={{ backgroundColor: harmonyPreview }}
+                      title={harmonyPreview}
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    const baseId = parseInt(document.getElementById('baseColorSelect').value);
+                    const harmonyModel = document.getElementById('harmonyModelSelect').value;
+                    const targetHue = document.getElementById('targetHueSelect').value;
+                    addHarmoniousColor(baseId, targetHue, harmonyModel);
+                  }}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
+                >
+                  Generate
+                </button>
               </div>
             </div>
           </div>
