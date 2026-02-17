@@ -5,6 +5,8 @@ export default function ColorScaleEditor() {
   const [cp1, setCp1] = useState({ x: 0.33, y: 0.00 });
   const [cp2, setCp2] = useState({ x: 0.50, y: 0.60 });
   const [dragging, setDragging] = useState(null);
+  const [globalLstarMin, setGlobalLstarMin] = useState(10);
+  const [globalLstarMax, setGlobalLstarMax] = useState(98);
   const [colorScales, setColorScales] = useState([]);
   const [nextColorId, setNextColorId] = useState(0);
   const [lightSurface, setLightSurface] = useState(false);
@@ -14,7 +16,11 @@ export default function ColorScaleEditor() {
   const [hoveredSwatch, setHoveredSwatch] = useState({ scaleId: null, index: null });
   const [grayScaleName, setGrayScaleName] = useState('gray');
   const [numSwatches, setNumSwatches] = useState(12); // Number of visible swatches (excluding white and black)
-  const [harmonyPreview, setHarmonyPreview] = useState(null);
+  const [harmonizingScale, setHarmonizingScale] = useState(null);
+  const [previewColors, setPreviewColors] = useState(null); // Store preview colors before adding (array of 5 options)
+  const [selectedPreview, setSelectedPreview] = useState(0); // Which preview option is selected
+  const [isGenerating, setIsGenerating] = useState(false); // Loading state for API calls
+  const [baseColorScaleId, setBaseColorScaleId] = useState(null); // Which color scale to use as base for harmonious colors
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -168,25 +174,26 @@ export default function ColorScaleEditor() {
   };
 
   // Generate gray scale
-  const generateGrayScale = () => {
+  const generateGrayScale = (lstarMin = 0, lstarMax = 100) => {
     const values = [];
     for (let i = 0; i < steps; i++) {
       let hex, lstar;
 
       if (i === 0) {
-        // First swatch: pure white
-        hex = '#ffffff';
-        lstar = 100;
+        // First swatch: lightest (using lstarMax)
+        lstar = lstarMax;
+        const rgb = lstarToRgb(lstar);
+        hex = rgbToHex(rgb.r, rgb.g, rgb.b);
       } else if (i === steps - 1) {
-        // Last swatch: pure black
-        hex = '#000000';
-        lstar = 0;
+        // Last swatch: darkest (using lstarMin)
+        lstar = lstarMin;
+        const rgb = lstarToRgb(lstar);
+        hex = rgbToHex(rgb.r, rgb.g, rgb.b);
       } else {
-        // Middle 12 swatches: generated using bezier curve
-        // Map to avoid pure white/black (use 1/13 to 12/13 range)
+        // Middle swatches: generated using bezier curve
         const t = i / (steps - 1);
         const easedT = getBezierY(t);
-        lstar = 100 - easedT * 100;
+        lstar = lstarMax - easedT * (lstarMax - lstarMin);
         const rgb = lstarToRgb(lstar);
         hex = rgbToHex(rgb.r, rgb.g, rgb.b);
       }
@@ -421,129 +428,226 @@ export default function ColorScaleEditor() {
     setCp2({ x: 0.50, y: 0.60 });
   };
 
-  const hueRanges = {
-    red: { min: 0, max: 15, mid: 0 },
-    orange: { min: 15, max: 45, mid: 30 },
-    yellow: { min: 45, max: 75, mid: 60 },
-    chartreuse: { min: 75, max: 105, mid: 90 },
-    green: { min: 105, max: 165, mid: 135 },
-    cyan: { min: 165, max: 195, mid: 180 },
-    blue: { min: 195, max: 255, mid: 225 },
-    purple: { min: 255, max: 285, mid: 270 },
-    magenta: { min: 285, max: 330, mid: 310 },
-    pink: { min: 330, max: 360, mid: 345 }
-  };
+  const harmonizeWithColor = (targetScaleId, baseScaleId) => {
+    const baseScale = colorScales.find(cs => cs.id === baseScaleId);
+    const targetScale = colorScales.find(cs => cs.id === targetScaleId);
 
-  const calculateHarmoniousColor = (baseColorId, targetHueFamily, harmonyModel) => {
-    const baseScale = colorScales.find(cs => cs.id === baseColorId);
-    if (!baseScale) return;
+    if (!baseScale || !targetScale) {
+      console.log('Base or target scale not found');
+      return;
+    }
 
-    // Get HSL values from base color
+    // Get HSL values for both colors
     const baseRgb = hexToRgb(baseScale.hex);
     const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
 
-    let targetHue;
-    let colorName = targetHueFamily;
+    const targetRgb = hexToRgb(targetScale.hex);
+    const targetHsl = rgbToHsl(targetRgb.r, targetRgb.g, targetRgb.b);
 
-    // Calculate target hue based on harmony model
-    switch(harmonyModel) {
-      case 'monochromatic':
-        // Use same hue as base color
-        targetHue = baseHsl.h;
-        colorName = 'monochromatic';
-        break;
-      case 'complementary':
-        // Opposite on color wheel (180°)
-        targetHue = (baseHsl.h + 180) % 360;
-        colorName = 'complementary';
-        break;
-      case 'analogous-warm':
-        // 30° warmer (counter-clockwise)
-        targetHue = (baseHsl.h + 30) % 360;
-        colorName = 'analogous-warm';
-        break;
-      case 'analogous-cool':
-        // 30° cooler (clockwise)
-        targetHue = (baseHsl.h - 30 + 360) % 360;
-        colorName = 'analogous-cool';
-        break;
-      case 'triadic-1':
-        // 120° offset
-        targetHue = (baseHsl.h + 120) % 360;
-        colorName = 'triadic-1';
-        break;
-      case 'triadic-2':
-        // 240° offset
-        targetHue = (baseHsl.h + 240) % 360;
-        colorName = 'triadic-2';
-        break;
-      case 'split-complementary-1':
-        // 150° offset
-        targetHue = (baseHsl.h + 150) % 360;
-        colorName = 'split-comp-1';
-        break;
-      case 'split-complementary-2':
-        // 210° offset
-        targetHue = (baseHsl.h + 210) % 360;
-        colorName = 'split-comp-2';
-        break;
-      default:
-        targetHue = baseHsl.h;
-    }
+    console.log('Base color:', baseScale.hex, 'HSL:', baseHsl);
+    console.log('Target color before:', targetScale.hex, 'HSL:', targetHsl);
 
-    // Create new color with target hue but matching saturation and lightness
-    const newRgb = hslToRgb(targetHue, baseHsl.s, baseHsl.l);
-    const newHex = rgbToHex(newRgb.r, newRgb.g, newRgb.b);
+    // Keep the target's hue but adjust saturation and lightness to harmonize
+    // Preserve the hue exactly
+    const harmonizedHue = targetHsl.h;
 
-    return { newHex, colorName, baseScale };
+    // Match saturation and lightness more closely to base for better harmony
+    // Use 80% base + 20% target for stronger harmonization
+    const harmonizedSaturation = (baseHsl.s * 0.8) + (targetHsl.s * 0.2);
+    const harmonizedLightness = (baseHsl.l * 0.8) + (targetHsl.l * 0.2);
+
+    // Convert back to RGB and hex
+    const harmonizedRgb = hslToRgb(harmonizedHue, harmonizedSaturation, harmonizedLightness);
+    const harmonizedHex = rgbToHex(harmonizedRgb.r, harmonizedRgb.g, harmonizedRgb.b);
+
+    console.log('Harmonized color:', harmonizedHex, 'HSL:', { h: harmonizedHue, s: harmonizedSaturation, l: harmonizedLightness });
+
+    // Update the target scale's hex color
+    updateColorScaleHex(targetScaleId, harmonizedHex);
+    setHarmonizingScale(null);
   };
 
-  const addHarmoniousColor = (baseColorId, targetHueFamily, harmonyModel) => {
-    const result = calculateHarmoniousColor(baseColorId, targetHueFamily, harmonyModel);
-    if (!result) return;
+  const generateHarmoniousColors = async () => {
+    // Get selected color families
+    const checkboxes = document.querySelectorAll('.harmonious-color-checkbox:checked');
+    const selectedFamilies = Array.from(checkboxes).map(cb => cb.value);
 
-    const { newHex, colorName, baseScale } = result;
+    if (selectedFamilies.length === 0) {
+      alert('Please select at least one color family');
+      return;
+    }
 
-    // Add as new color scale
-    const newScale = {
-      id: nextColorId,
-      name: `${colorName}-${nextColorId + 1}`,
-      hex: newHex,
-      lightSurface: false,
-      useCustomBezier: false,
-      lockKeyColor: false,
-      showAdvancedSettings: false,
-      lstarMin: baseScale.lstarMin,
-      lstarMax: baseScale.lstarMax,
-      saturationMin: baseScale.saturationMin,
-      saturationMax: baseScale.saturationMax,
-      hueShiftDark: baseScale.hueShiftDark,
-      hueShiftLight: baseScale.hueShiftLight,
-      customSwatches: {},
-      cp1: baseScale.useCustomBezier ? baseScale.cp1 : { x: 0.33, y: 0.00 },
-      cp2: baseScale.useCustomBezier ? baseScale.cp2 : { x: 0.50, y: 0.60 }
+    // Define hue ranges for each color family
+    const colorFamilyHues = {
+      red: 0,
+      rose: 350,
+      pink: 330,
+      orange: 30,
+      amber: 45,
+      yellow: 60,
+      lime: 90,
+      green: 135,
+      emerald: 150,
+      teal: 165,
+      cyan: 180,
+      sky: 200,
+      blue: 225,
+      indigo: 240,
+      violet: 280,
+      purple: 270
     };
-    setColorScales([...colorScales, newScale]);
-    setNextColorId(nextColorId + 1);
+
+    // Start loading
+    setIsGenerating(true);
+    setPreviewColors(null);
+
+    // Generate 5 different options
+    const allOptions = [];
+
+    for (let optionIndex = 0; optionIndex < 5; optionIndex++) {
+      try {
+        // Use Colormind API to get harmonious colors
+        // Use selected base color or default to first color scale
+        const baseScale = baseColorScaleId
+          ? colorScales.find(cs => cs.id === baseColorScaleId)
+          : colorScales[0];
+
+        const input = baseScale
+          ? [hexToRgb(baseScale.hex), "N", "N", "N", "N"].map(item =>
+              typeof item === 'string' ? item : [item.r, item.g, item.b])
+          : ["N", "N", "N", "N", "N"];
+
+        const response = await fetch('http://colormind.io/api/', {
+          method: 'POST',
+          body: JSON.stringify({
+            model: 'default',
+            input: input
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.result) {
+          const palette = data.result;
+          const newColors = [];
+
+          // Match each generated color to the closest selected family by hue
+          selectedFamilies.forEach((family) => {
+            const targetHue = colorFamilyHues[family];
+
+            // Find the color in the palette that's closest to this hue family
+            let closestColor = null;
+            let minHueDiff = Infinity;
+
+            palette.forEach(rgb => {
+              const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+              const hueDiff = Math.min(
+                Math.abs(hsl.h - targetHue),
+                Math.abs(hsl.h - targetHue + 360),
+                Math.abs(hsl.h - targetHue - 360)
+              );
+
+              if (hueDiff < minHueDiff) {
+                minHueDiff = hueDiff;
+                closestColor = rgb;
+              }
+            });
+
+            // If no good match, generate a color with the target hue
+            let finalRgb;
+            if (closestColor && minHueDiff < 60) {
+              // Use API color but shift hue to match family
+              const apiHsl = rgbToHsl(closestColor[0], closestColor[1], closestColor[2]);
+              finalRgb = hslToRgb(targetHue, apiHsl.s, apiHsl.l);
+            } else {
+              // Fallback to simple generation
+              const saturation = 0.65 + (Math.random() * 0.2);
+              const lightness = 0.50 + (Math.random() * 0.1);
+              finalRgb = hslToRgb(targetHue, saturation, lightness);
+            }
+
+            const hex = rgbToHex(finalRgb.r, finalRgb.g, finalRgb.b);
+
+            newColors.push({
+              family: family,
+              hex: hex
+            });
+          });
+
+          allOptions.push(newColors);
+        }
+      } catch (error) {
+        console.error('Error calling Colormind API:', error);
+        console.log('Falling back to simple color generation for option', optionIndex);
+
+        // Fallback to simple generation if API fails
+        const newColors = [];
+
+        selectedFamilies.forEach((family) => {
+          const hue = colorFamilyHues[family];
+          const saturation = 0.65 + (Math.random() * 0.2);
+          const lightness = 0.50 + (Math.random() * 0.1);
+
+          const rgb = hslToRgb(hue, saturation, lightness);
+          const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+
+          newColors.push({
+            family: family,
+            hex: hex
+          });
+        });
+
+        allOptions.push(newColors);
+      }
+    }
+
+    setPreviewColors(allOptions);
+    setSelectedPreview(0);
+    setIsGenerating(false);
   };
 
-  const updateHarmonyPreview = () => {
-    const baseIdEl = document.getElementById('baseColorSelect');
-    const harmonyModelEl = document.getElementById('harmonyModelSelect');
-    const targetHueEl = document.getElementById('targetHueSelect');
+  const applyPreviewColors = () => {
+    if (!previewColors || !previewColors[selectedPreview]) return;
 
-    if (!baseIdEl || !harmonyModelEl || !targetHueEl) return;
+    const selectedColors = previewColors[selectedPreview];
+    const newScales = [];
 
-    const baseId = parseInt(baseIdEl.value);
-    const harmonyModel = harmonyModelEl.value;
-    const targetHue = targetHueEl.value;
+    selectedColors.forEach((colorData, index) => {
+      const newScale = {
+        id: nextColorId + index,
+        name: `${colorData.family}-${nextColorId + index + 1}`,
+        hex: colorData.hex,
+        lightSurface: false,
+        useCustomBezier: false,
+        useCustomLstarRange: false,
+        lockKeyColor: false,
+        showAdvancedSettings: false,
+        lstarMin: 0,
+        lstarMax: 100,
+        saturationMin: 100,
+        saturationMax: 100,
+        hueShiftDark: 0,
+        hueShiftLight: 0,
+        customSwatches: {},
+        cp1: { x: 0.33, y: 0.00 },
+        cp2: { x: 0.50, y: 0.60 }
+      };
+      newScales.push(newScale);
+    });
 
-    if (!baseId && baseId !== 0) return;
+    setColorScales([...colorScales, ...newScales]);
+    setNextColorId(nextColorId + newScales.length);
+    setPreviewColors(null);
+    setSelectedPreview(0);
 
-    const result = calculateHarmoniousColor(baseId, targetHue, harmonyModel);
-    if (result) {
-      setHarmonyPreview(result.newHex);
-    }
+    // Uncheck all checkboxes
+    const checkboxes = document.querySelectorAll('.harmonious-color-checkbox:checked');
+    checkboxes.forEach(cb => cb.checked = false);
+  };
+
+  const cancelPreview = () => {
+    setPreviewColors(null);
+    setSelectedPreview(0);
   };
 
   const addColorScale = () => {
@@ -553,6 +657,7 @@ export default function ColorScaleEditor() {
       hex: '#3b82f6',
       lightSurface: false,
       useCustomBezier: false,
+      useCustomLstarRange: false,
       lockKeyColor: false,
       showAdvancedSettings: false,
       lstarMin: 0,
@@ -606,6 +711,12 @@ export default function ColorScaleEditor() {
   const toggleCustomBezier = (id) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, useCustomBezier: !cs.useCustomBezier } : cs
+    ));
+  };
+
+  const toggleCustomLstarRange = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, useCustomLstarRange: !cs.useCustomLstarRange } : cs
     ));
   };
 
@@ -911,15 +1022,31 @@ export default function ColorScaleEditor() {
     });
   }, [colorScales]);
 
-  // Initialize harmony preview when color scales change
+  // Set default base color scale to first color scale
   useEffect(() => {
-    if (colorScales.length > 0) {
-      // Small delay to ensure DOM elements are ready
-      setTimeout(updateHarmonyPreview, 0);
+    if (colorScales.length > 0 && baseColorScaleId === null) {
+      setBaseColorScaleId(colorScales[0].id);
     }
-  }, [colorScales.length]);
+  }, [colorScales, baseColorScaleId]);
 
-  const grayScale = generateGrayScale()
+  // Debug: Log global L* range changes
+  useEffect(() => {
+    console.log('Global L* Range updated:', { min: globalLstarMin, max: globalLstarMax });
+  }, [globalLstarMin, globalLstarMax]);
+
+  // Close harmonize dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (harmonizingScale !== null && !e.target.closest('.harmonize-dropdown-container')) {
+        setHarmonizingScale(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [harmonizingScale]);
+
+  const grayScale = generateGrayScale(globalLstarMin, globalLstarMax)
     .slice(1, -1) // Remove white and black anchors
     .map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 })); // Renumber to 100-1200
 
@@ -944,8 +1071,8 @@ export default function ColorScaleEditor() {
         cs.hex,
         cs.useCustomBezier ? cs.cp1 : null,
         cs.useCustomBezier ? cs.cp2 : null,
-        cs.lstarMin,
-        cs.lstarMax,
+        (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin,
+        (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax,
         cs.saturationMin,
         cs.saturationMax,
         cs.hueShiftDark,
@@ -1082,6 +1209,52 @@ export default function ColorScaleEditor() {
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Global L* Range (Lightness Limits)
+            </label>
+            <button
+              onClick={() => {
+                setGlobalLstarMin(10);
+                setGlobalLstarMax(98);
+              }}
+              className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                value={globalLstarMax}
+                onChange={(e) => setGlobalLstarMax(parseInt(e.target.value))}
+                className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMax}</div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+              <input
+                type="range"
+                min="0"
+                max="95"
+                value={globalLstarMin}
+                onChange={(e) => setGlobalLstarMin(parseInt(e.target.value))}
+                className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMin}</div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            Default lightness range for all color scales (use custom range in Advanced Settings to override)
+          </div>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
           <canvas
             ref={canvasRef}
             onMouseDown={handleCanvasMouseDown}
@@ -1172,8 +1345,8 @@ export default function ColorScaleEditor() {
             cs.hex,
             cs.useCustomBezier ? cs.cp1 : null,
             cs.useCustomBezier ? cs.cp2 : null,
-            cs.lstarMin,
-            cs.lstarMax,
+            (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin,
+            (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax,
             cs.saturationMin,
             cs.saturationMax,
             cs.hueShiftDark,
@@ -1294,6 +1467,46 @@ export default function ColorScaleEditor() {
                           Useful when exact brand color is needed
                         </div>
                       </div>
+                      {colorScales.length > 1 && (
+                        <div className="relative harmonize-dropdown-container">
+                          <button
+                            onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-md text-xs font-medium text-white transition-colors"
+                          >
+                            Harmonize
+                          </button>
+                          {harmonizingScale === cs.id && (
+                            <div className="absolute top-full left-0 mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 shadow-xl z-20 min-w-[200px]">
+                              <div className="text-xs font-medium text-gray-400 mb-2">Harmonize with:</div>
+                              <div className="space-y-1">
+                                {colorScales
+                                  .filter(otherCs => otherCs.id !== cs.id)
+                                  .map(otherCs => (
+                                    <button
+                                      key={otherCs.id}
+                                      onClick={() => harmonizeWithColor(cs.id, otherCs.id)}
+                                      className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-700 rounded text-left transition-colors"
+                                    >
+                                      <div
+                                        className="w-4 h-4 rounded border border-zinc-600"
+                                        style={{ backgroundColor: otherCs.hex }}
+                                      />
+                                      <span className="text-xs text-gray-200">{otherCs.name}</span>
+                                    </button>
+                                  ))}
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-zinc-700">
+                                <button
+                                  onClick={() => setHarmonizingScale(null)}
+                                  className="w-full px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1310,10 +1523,22 @@ export default function ColorScaleEditor() {
                 </div>
                 {cs.showAdvancedSettings && (
                   <>
+                <div className="mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cs.useCustomLstarRange}
+                      onChange={() => toggleCustomLstarRange(cs.id)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <span className="text-xs font-medium text-gray-400">Use Custom L* Range</span>
+                  </label>
+                </div>
+                {cs.useCustomLstarRange && (
                 <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      L* Range (Lightness Limits)
+                      Custom L* Range (Lightness Limits)
                     </label>
                     <button
                       onClick={() => resetLstarRange(cs.id)}
@@ -1349,9 +1574,10 @@ export default function ColorScaleEditor() {
                     </div>
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
-                    Adjust to avoid muddy colors at extremes (e.g., yellow works well at L* 20-90)
+                    Override global L* range for this color scale (e.g., yellow works well at L* 20-90)
                   </div>
                 </div>
+                )}
                 <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1685,8 +1911,8 @@ export default function ColorScaleEditor() {
                     cs.hex,
                     cs.useCustomBezier ? cs.cp1 : null,
                     cs.useCustomBezier ? cs.cp2 : null,
-                    cs.lstarMin,
-                    cs.lstarMax,
+                    cs.useCustomLstarRange ? cs.lstarMin : globalLstarMin,
+                    cs.useCustomLstarRange ? cs.lstarMax : globalLstarMax,
                     cs.saturationMin,
                     cs.saturationMax,
                     cs.hueShiftDark,
@@ -1733,98 +1959,145 @@ export default function ColorScaleEditor() {
 
         {colorScales.length > 0 && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Add Harmonious Color</h3>
+            <h3 className="text-lg font-semibold text-white mb-3">Add Color Families</h3>
             <p className="text-sm text-gray-400 mb-4">
-              Generate a color that harmonizes with an existing color using color theory
+              Quickly add common color families to your palette
             </p>
             <div className="flex gap-3 items-end flex-wrap">
-              <div className="flex-1 min-w-[200px]">
+              <div className="flex-1 min-w-[300px]">
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                  Select Color Families to Generate
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { name: 'Red', value: 'red', color: '#ef4444' },
+                    { name: 'Rose', value: 'rose', color: '#f43f5e' },
+                    { name: 'Pink', value: 'pink', color: '#ec4899' },
+                    { name: 'Orange', value: 'orange', color: '#f97316' },
+                    { name: 'Amber', value: 'amber', color: '#f59e0b' },
+                    { name: 'Yellow', value: 'yellow', color: '#eab308' },
+                    { name: 'Lime', value: 'lime', color: '#84cc16' },
+                    { name: 'Green', value: 'green', color: '#22c55e' },
+                    { name: 'Emerald', value: 'emerald', color: '#10b981' },
+                    { name: 'Teal', value: 'teal', color: '#14b8a6' },
+                    { name: 'Cyan', value: 'cyan', color: '#06b6d4' },
+                    { name: 'Sky', value: 'sky', color: '#0ea5e9' },
+                    { name: 'Blue', value: 'blue', color: '#3b82f6' },
+                    { name: 'Indigo', value: 'indigo', color: '#6366f1' },
+                    { name: 'Violet', value: 'violet', color: '#8b5cf6' },
+                    { name: 'Purple', value: 'purple', color: '#a855f7' },
+                  ].map((family) => (
+                    <label
+                      key={family.value}
+                      className="flex items-center gap-2 px-3 py-2 bg-black border border-zinc-700 rounded-md cursor-pointer hover:bg-zinc-900 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        value={family.value}
+                        className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer harmonious-color-checkbox"
+                      />
+                      <div
+                        className="w-4 h-4 rounded border border-zinc-600"
+                        style={{ backgroundColor: family.color }}
+                      />
+                      <span className="text-sm text-gray-200">{family.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Base Color
                 </label>
                 <select
-                  id="baseColorSelect"
-                  className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
-                  onChange={updateHarmonyPreview}
+                  value={baseColorScaleId || ''}
+                  onChange={(e) => setBaseColorScaleId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  {colorScales.map(cs => (
+                  {colorScales.map((cs) => (
                     <option key={cs.id} value={cs.id}>
-                      {cs.name} ({cs.hex})
+                      {cs.name}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                  Harmony Model
-                </label>
-                <select
-                  id="harmonyModelSelect"
-                  className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
-                  onChange={(e) => {
-                    const hueSelect = document.getElementById('targetHueSelect');
-                    hueSelect.style.display = e.target.value === 'monochromatic' ? 'none' : 'none';
-                    hueSelect.parentElement.style.display = e.target.value === 'monochromatic' ? 'none' : 'none';
-                    updateHarmonyPreview();
-                  }}
-                >
-                  <option value="monochromatic">Monochromatic (same hue)</option>
-                  <option value="complementary">Complementary (opposite)</option>
-                  <option value="analogous-warm">Analogous (warmer)</option>
-                  <option value="analogous-cool">Analogous (cooler)</option>
-                  <option value="triadic-1">Triadic (120°)</option>
-                  <option value="triadic-2">Triadic (240°)</option>
-                  <option value="split-complementary-1">Split-Complementary (150°)</option>
-                  <option value="split-complementary-2">Split-Complementary (210°)</option>
-                </select>
-              </div>
-              <div className="flex-1 min-w-[200px]" id="hueContainer" style={{ display: 'none' }}>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                  Target Hue Family
-                </label>
-                <select
-                  id="targetHueSelect"
-                  className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
-                  onChange={updateHarmonyPreview}
-                >
-                  <option value="red">Red (negative/error)</option>
-                  <option value="orange">Orange (warning)</option>
-                  <option value="yellow">Yellow (caution)</option>
-                  <option value="chartreuse">Chartreuse</option>
-                  <option value="green">Green (success/positive)</option>
-                  <option value="cyan">Cyan (info)</option>
-                  <option value="blue">Blue</option>
-                  <option value="purple">Purple</option>
-                  <option value="magenta">Magenta</option>
-                  <option value="pink">Pink</option>
-                </select>
-              </div>
               <div className="flex items-end gap-3">
-                {harmonyPreview && (
-                  <div className="flex flex-col items-center gap-2">
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Preview
-                    </label>
-                    <div
-                      className="w-16 h-10 rounded-md border-2 border-zinc-600"
-                      style={{ backgroundColor: harmonyPreview }}
-                      title={harmonyPreview}
-                    />
-                  </div>
-                )}
                 <button
-                  onClick={() => {
-                    const baseId = parseInt(document.getElementById('baseColorSelect').value);
-                    const harmonyModel = document.getElementById('harmonyModelSelect').value;
-                    const targetHue = document.getElementById('targetHueSelect').value;
-                    addHarmoniousColor(baseId, targetHue, harmonyModel);
-                  }}
+                  onClick={generateHarmoniousColors}
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
                 >
-                  Generate
+                  Preview Colors
                 </button>
               </div>
             </div>
+
+            {/* Loading State */}
+            {isGenerating && (
+              <div className="mt-4 p-8 bg-black border border-zinc-700 rounded-lg">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative w-12 h-12">
+                    <div className="absolute inset-0 border-4 border-zinc-700 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
+                  </div>
+                  <div className="text-sm text-gray-400">Generating harmonious colors...</div>
+                </div>
+              </div>
+            )}
+
+            {/* Preview Area */}
+            {!isGenerating && previewColors && (
+              <div className="mt-4 p-4 bg-black border border-zinc-700 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-white">Preview - Select an option</h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={generateHarmoniousColors}
+                      className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-md text-xs font-medium text-white transition-colors"
+                    >
+                      Regenerate All
+                    </button>
+                    <button
+                      onClick={applyPreviewColors}
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium text-white transition-colors"
+                    >
+                      Add Selected
+                    </button>
+                    <button
+                      onClick={cancelPreview}
+                      className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-md text-xs font-medium text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  {previewColors.map((option, optionIndex) => (
+                    <div
+                      key={optionIndex}
+                      onClick={() => setSelectedPreview(optionIndex)}
+                      className={`flex flex-col gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                        selectedPreview === optionIndex
+                          ? 'bg-zinc-800 border-2 border-purple-500'
+                          : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      <div className="text-xs font-medium text-gray-400 mb-1">Option {optionIndex + 1}</div>
+                      <div className="flex gap-2">
+                        {option.map((colorData, colorIndex) => (
+                          <div key={colorIndex} className="flex flex-col items-center gap-1">
+                            <div
+                              className="w-12 h-12 rounded border border-zinc-600"
+                              style={{ backgroundColor: colorData.hex }}
+                            />
+                            <span className="text-xs text-gray-500 capitalize">{colorData.family}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
