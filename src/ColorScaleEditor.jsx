@@ -448,9 +448,9 @@ export default function ColorScaleEditor() {
     // Calculate target hue based on harmony model
     switch(harmonyModel) {
       case 'monochromatic':
-        // Use selected hue family
-        const hueRange = hueRanges[targetHueFamily];
-        targetHue = hueRange.mid;
+        // Use same hue as base color
+        targetHue = baseHsl.h;
+        colorName = 'monochromatic';
         break;
       case 'complementary':
         // Opposite on color wheel (180°)
@@ -1125,19 +1125,19 @@ export default function ColorScaleEditor() {
             </div>
             <div className="relative mb-4">
               <div
-                className="flex gap-0.5 h-16 rounded-lg overflow-hidden p-4"
+                className="flex gap-2 h-16 rounded-lg p-4"
                 style={{ background: lightSurface ? '#ffffff' : '#000000' }}
               >
                 {grayScale.map((v, i) => (
-                  <div key={i} className="flex-1" style={{ background: v.hex }} />
+                  <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
                 ))}
               </div>
               {hoveredSwatch.scaleId === 'gray' && hoveredSwatch.index !== null && (
                 <div
                   className="absolute top-0 bottom-0 pointer-events-none transition-all duration-200"
                   style={{
-                    left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.125rem) / ${grayScale.length}))`,
-                    width: `calc((100% - 2rem + 0.125rem) / ${grayScale.length} - 0.125rem)`,
+                    left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.5rem) / ${grayScale.length}))`,
+                    width: `calc((100% - 2rem + 0.5rem) / ${grayScale.length} - 0.5rem)`,
                   }}
                 >
                   <div
@@ -1530,19 +1530,19 @@ export default function ColorScaleEditor() {
                 )}
                 <div className="relative mb-4">
                   <div
-                    className="flex gap-0.5 h-16 rounded-lg overflow-hidden p-4"
+                    className="flex gap-2 h-16 rounded-lg p-4"
                     style={{ background: cs.lightSurface ? '#ffffff' : '#000000' }}
                   >
                     {scale.map((v, i) => (
-                      <div key={i} className="flex-1" style={{ background: v.hex }} />
+                      <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
                     ))}
                   </div>
                   {hoveredSwatch.scaleId === cs.id && hoveredSwatch.index !== null && (
                     <div
                       className="absolute top-0 bottom-0 pointer-events-none transition-all duration-200"
                       style={{
-                        left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.125rem) / ${scale.length}))`,
-                        width: `calc((100% - 2rem + 0.125rem) / ${scale.length} - 0.125rem)`,
+                        left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.5rem) / ${scale.length}))`,
+                        width: `calc((100% - 2rem + 0.5rem) / ${scale.length} - 0.5rem)`,
                       }}
                     >
                       <div
@@ -1673,9 +1673,9 @@ export default function ColorScaleEditor() {
                       Gray
                     </span>
                   </div>
-                  <div className="flex gap-0.5 flex-1 h-8 rounded overflow-hidden">
+                  <div className="flex gap-2 flex-1 h-8">
                     {grayScale.map((v, i) => (
-                      <div key={i} className="flex-1" style={{ background: v.hex }} />
+                      <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
                     ))}
                   </div>
                 </div>
@@ -1718,9 +1718,9 @@ export default function ColorScaleEditor() {
                           {cs.hex}
                         </span>
                       </div>
-                      <div className="flex gap-0.5 flex-1 h-8 rounded overflow-hidden">
+                      <div className="flex gap-2 flex-1 h-8">
                         {scale.map((v, i) => (
-                          <div key={i} className="flex-1" style={{ background: v.hex }} />
+                          <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
                         ))}
                       </div>
                     </div>
@@ -1763,12 +1763,12 @@ export default function ColorScaleEditor() {
                   className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm focus:outline-none focus:border-zinc-600"
                   onChange={(e) => {
                     const hueSelect = document.getElementById('targetHueSelect');
-                    hueSelect.style.display = e.target.value === 'monochromatic' ? 'block' : 'none';
-                    hueSelect.parentElement.style.display = e.target.value === 'monochromatic' ? 'block' : 'none';
+                    hueSelect.style.display = e.target.value === 'monochromatic' ? 'none' : 'none';
+                    hueSelect.parentElement.style.display = e.target.value === 'monochromatic' ? 'none' : 'none';
                     updateHarmonyPreview();
                   }}
                 >
-                  <option value="monochromatic">Monochromatic (choose hue)</option>
+                  <option value="monochromatic">Monochromatic (same hue)</option>
                   <option value="complementary">Complementary (opposite)</option>
                   <option value="analogous-warm">Analogous (warmer)</option>
                   <option value="analogous-cool">Analogous (cooler)</option>
@@ -1778,7 +1778,7 @@ export default function ColorScaleEditor() {
                   <option value="split-complementary-2">Split-Complementary (210°)</option>
                 </select>
               </div>
-              <div className="flex-1 min-w-[200px]" id="hueContainer">
+              <div className="flex-1 min-w-[200px]" id="hueContainer" style={{ display: 'none' }}>
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
                   Target Hue Family
                 </label>
