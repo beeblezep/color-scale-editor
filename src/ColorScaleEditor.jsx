@@ -24,6 +24,8 @@ export default function ColorScaleEditor() {
   const [desaturatedScales, setDesaturatedScales] = useState(new Set()); // Set of scale IDs that are in desaturate/luminance mode
   const [isGrayScaleDesaturated, setIsGrayScaleDesaturated] = useState(false); // Whether the gray scale is in desaturate/luminance mode
   const [isComparisonDesaturated, setIsComparisonDesaturated] = useState(false); // Whether all scales in comparison section are in desaturate/luminance mode
+  const [shareUrl, setShareUrl] = useState('');
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -716,6 +718,92 @@ export default function ColorScaleEditor() {
 
     setSelectedPreviews(newSelected);
   };
+
+  // Serialize state to URL parameter
+  const serializeState = () => {
+    const state = {
+      cp1,
+      cp2,
+      globalLstarMin,
+      globalLstarMax,
+      colorScales,
+      nextColorId,
+      grayScaleName,
+      numSwatches,
+      lightSurface,
+      comparisonLightSurface
+    };
+
+    try {
+      const json = JSON.stringify(state);
+      // Use URL-safe base64 encoding
+      const base64 = btoa(json)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      return base64;
+    } catch (e) {
+      console.error('Failed to serialize state:', e);
+      return '';
+    }
+  };
+
+  // Deserialize state from URL parameter
+  const deserializeState = (encoded) => {
+    try {
+      // Convert from URL-safe base64
+      const base64 = encoded
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const json = atob(base64);
+      const state = JSON.parse(json);
+
+      // Restore state
+      if (state.cp1) setCp1(state.cp1);
+      if (state.cp2) setCp2(state.cp2);
+      if (state.globalLstarMin !== undefined) setGlobalLstarMin(state.globalLstarMin);
+      if (state.globalLstarMax !== undefined) setGlobalLstarMax(state.globalLstarMax);
+      if (state.colorScales) setColorScales(state.colorScales);
+      if (state.nextColorId !== undefined) setNextColorId(state.nextColorId);
+      if (state.grayScaleName) setGrayScaleName(state.grayScaleName);
+      if (state.numSwatches !== undefined) setNumSwatches(state.numSwatches);
+      if (state.lightSurface !== undefined) setLightSurface(state.lightSurface);
+      if (state.comparisonLightSurface !== undefined) setComparisonLightSurface(state.comparisonLightSurface);
+
+      return true;
+    } catch (e) {
+      console.error('Failed to deserialize state:', e);
+      return false;
+    }
+  };
+
+  // Generate share URL and copy to clipboard
+  const generateShareUrl = async () => {
+    const encoded = serializeState();
+    if (!encoded) return;
+
+    const url = `${window.location.origin}${window.location.pathname}#${encoded}`;
+    setShareUrl(url);
+
+    // Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(url);
+      setShowCopiedMessage(true);
+      setTimeout(() => setShowCopiedMessage(false), 2000);
+    } catch (e) {
+      console.error('Failed to copy to clipboard:', e);
+      // Fallback: select the URL for manual copying
+      alert(`Failed to copy automatically. Here's your share URL:\n\n${url}`);
+    }
+  };
+
+  // Load state from URL on mount
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove the # character
+    if (hash) {
+      deserializeState(hash);
+    }
+  }, []); // Only run once on mount
 
   const addColorScale = () => {
     const newScale = {
@@ -1573,6 +1661,18 @@ export default function ColorScaleEditor() {
                         onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
                         className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
                       />
+                      <input
+                        type="text"
+                        value={cs.hex}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                            updateColorScaleHex(cs.id, value);
+                          }
+                        }}
+                        className="w-20 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono text-gray-200 focus:outline-none focus:border-blue-500"
+                        placeholder="#000000"
+                      />
                       <div className="relative group">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -2291,7 +2391,7 @@ export default function ColorScaleEditor() {
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           <button
             onClick={addColorScale}
             className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
@@ -2304,6 +2404,17 @@ export default function ColorScaleEditor() {
           >
             Export to Figma Tokens
           </button>
+          <button
+            onClick={generateShareUrl}
+            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
+          >
+            Share Palette
+          </button>
+          {showCopiedMessage && (
+            <span className="text-sm text-green-500 font-medium animate-pulse">
+              Link copied to clipboard!
+            </span>
+          )}
         </div>
       </div>
     </div>
