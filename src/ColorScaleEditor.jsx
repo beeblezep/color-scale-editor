@@ -26,6 +26,7 @@ export default function ColorScaleEditor() {
   const [isComparisonDesaturated, setIsComparisonDesaturated] = useState(false); // Whether all scales in comparison section are in desaturate/luminance mode
   const [shareUrl, setShareUrl] = useState('');
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+  const [useLightnessNumbering, setUseLightnessNumbering] = useState(false); // Toggle between sequential (100, 200...) and lightness-based (98, 90, 80...) numbering
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -259,6 +260,114 @@ export default function ColorScaleEditor() {
       values.push({ step, hex, lstar: lstar.toFixed(1) });
     }
     return values;
+  };
+
+  // Calculate step numbers from L* values with smart rounding
+  const calculateStepFromLstar = (lstarValues, useLightnessNumbering, lstarMin, lstarMax) => {
+    if (!useLightnessNumbering) {
+      return lstarValues.map((_, i) => (i + 1) * 100);
+    }
+
+    const count = lstarValues.length;
+    const results = new Array(count);
+    const usedNumbers = new Set();
+    const lstarFloats = lstarValues.map(v => parseFloat(v));
+    const assignedIndices = new Set();
+
+    // SPECIAL CASE: For 15 or fewer swatches, use predefined clean numbers
+    if (count <= 15) {
+      // Prioritize decades, then edge fives (95, 15, 85, 25) before middle fives
+      const numberSets = {
+        1: [10],
+        2: [20, 10],
+        3: [30, 20, 10],
+        4: [40, 30, 20, 10],
+        5: [50, 40, 30, 20, 10],
+        6: [60, 50, 40, 30, 20, 10],
+        7: [70, 60, 50, 40, 30, 20, 10],
+        8: [80, 70, 60, 50, 40, 30, 20, 10],
+        9: [90, 80, 70, 60, 50, 40, 30, 20, 10],
+        10: [98, 90, 80, 70, 60, 50, 40, 30, 20, 10],
+        11: [98, 90, 80, 70, 60, 50, 40, 30, 20, 15, 10],
+        12: [98, 95, 90, 80, 70, 60, 50, 40, 30, 20, 15, 10],
+        13: [98, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 15, 10],
+        14: [98, 95, 90, 85, 80, 70, 60, 50, 40, 30, 25, 20, 15, 10],
+        15: [98, 95, 90, 85, 80, 70, 60, 50, 40, 30, 25, 20, 15, 12, 10]
+      };
+
+      const numbers = numberSets[count] || [];
+      for (let i = 0; i < count; i++) {
+        results[i] = numbers[i];
+      }
+
+      return results;
+    }
+
+    // STEP 1: For 10+ swatches, anchor first and last to exact global limits
+    results[0] = Math.round(lstarMax);
+    results[count - 1] = Math.round(lstarMin);
+    usedNumbers.add(results[0]);
+    usedNumbers.add(results[count - 1]);
+    assignedIndices.add(0);
+    assignedIndices.add(count - 1);
+
+    // STEP 2: Prioritize decade numbers (90, 80, 70, 60, 50, 40, 30, 20)
+    const decadeNumbers = [90, 80, 70, 60, 50, 40, 30, 20];
+
+    for (const decade of decadeNumbers) {
+      if (usedNumbers.has(decade)) continue;
+
+      let closestIndex = -1;
+      let closestDistance = Infinity;
+
+      for (let i = 1; i < count - 1; i++) {
+        if (assignedIndices.has(i)) continue;
+        const distance = Math.abs(lstarFloats[i] - decade);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = i;
+        }
+      }
+
+      // Assign if reasonably close (within ±7 units)
+      if (closestIndex !== -1 && closestDistance <= 7) {
+        results[closestIndex] = decade;
+        usedNumbers.add(decade);
+        assignedIndices.add(closestIndex);
+      }
+    }
+
+    // STEP 3: Assign fives to remaining swatches
+    for (let i = 1; i < count - 1; i++) {
+      if (assignedIndices.has(i)) continue;
+
+      const nearest5 = Math.round(lstarFloats[i] / 5) * 5;
+      if (!usedNumbers.has(nearest5)) {
+        results[i] = nearest5;
+        usedNumbers.add(nearest5);
+        assignedIndices.add(i);
+      }
+    }
+
+    // STEP 4: Assign integers to any remaining swatches
+    for (let i = 1; i < count - 1; i++) {
+      if (assignedIndices.has(i)) continue;
+
+      let stepNumber = Math.round(lstarFloats[i]);
+      let offset = 0;
+      while (usedNumbers.has(stepNumber)) {
+        offset++;
+        if (offset % 2 === 1) {
+          stepNumber = Math.round(lstarFloats[i]) + Math.ceil(offset / 2);
+        } else {
+          stepNumber = Math.round(lstarFloats[i]) - offset / 2;
+        }
+      }
+      results[i] = stepNumber;
+      usedNumbers.add(stepNumber);
+    }
+
+    return results;
   };
 
   // Generate color scale
@@ -731,7 +840,8 @@ export default function ColorScaleEditor() {
       grayScaleName,
       numSwatches,
       lightSurface,
-      comparisonLightSurface
+      comparisonLightSurface,
+      useLightnessNumbering
     };
 
     try {
@@ -769,6 +879,7 @@ export default function ColorScaleEditor() {
       if (state.numSwatches !== undefined) setNumSwatches(state.numSwatches);
       if (state.lightSurface !== undefined) setLightSurface(state.lightSurface);
       if (state.comparisonLightSurface !== undefined) setComparisonLightSurface(state.comparisonLightSurface);
+      if (state.useLightnessNumbering !== undefined) setUseLightnessNumbering(state.useLightnessNumbering);
 
       return true;
     } catch (e) {
@@ -1226,9 +1337,12 @@ export default function ColorScaleEditor() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [harmonizingScale]);
 
-  const grayScale = generateGrayScale(globalLstarMin, globalLstarMax)
-    .slice(1, -1) // Remove white and black anchors
-    .map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 })); // Renumber to 100-1200
+  const grayScale = (() => {
+    const scale = generateGrayScale(globalLstarMin, globalLstarMax).slice(1, -1);
+    const lstarValues = scale.map(s => s.lstar);
+    const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, globalLstarMin, globalLstarMax);
+    return scale.map((swatch, i) => ({ ...swatch, step: steps[i] }));
+  })();
 
   // Export to Figma Tokens format
   const exportToFigmaTokens = () => {
@@ -1280,8 +1394,15 @@ export default function ColorScaleEditor() {
         }
       });
 
-      // Remove white and black anchors and renumber to 100-1200
-      scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
+      // Remove white and black anchors and apply numbering
+      scale = (() => {
+        const sliced = scale.slice(1, -1);
+        const lstarValues = sliced.map(s => s.lstar);
+        const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
+        const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
+        const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax);
+        return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
+      })();
 
       tokens.color[cs.name] = {};
       scale.forEach(swatch => {
@@ -1386,6 +1507,39 @@ export default function ColorScaleEditor() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Token Numbers:
+            </label>
+            <button
+              onClick={() => setUseLightnessNumbering(false)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                !useLightnessNumbering
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+              }`}
+            >
+              Sequential (100, 200...)
+            </button>
+            <button
+              onClick={() => setUseLightnessNumbering(true)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                useLightnessNumbering
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+              }`}
+            >
+              Lightness (90, 80, 70...)
+            </button>
+          </div>
+          {useLightnessNumbering && (
+            <div className="mt-2 text-xs text-gray-400">
+              Numbers based on L* values: prioritizes 10s (90, 80, 70...), then 5s (95, 85...), then smaller increments as needed.
+            </div>
+          )}
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
@@ -1559,8 +1713,15 @@ export default function ColorScaleEditor() {
             };
           }
 
-          // Remove white and black anchors and renumber to 100-1200
-          scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
+          // Remove white and black anchors and apply numbering
+          scale = (() => {
+            const sliced = scale.slice(1, -1);
+            const lstarValues = sliced.map(s => s.lstar);
+            const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
+            const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
+            const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax);
+            return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
+          })();
 
           // Apply custom swatches AFTER renumbering
           scale.forEach((swatch, i) => {
@@ -2184,8 +2345,15 @@ export default function ColorScaleEditor() {
                     }
                   }
 
-                  // Remove white and black anchors and renumber to 100-1200
-                  scale = scale.slice(1, -1).map((swatch, i) => ({ ...swatch, step: (i + 1) * 100 }));
+                  // Remove white and black anchors and apply numbering
+                  scale = (() => {
+                    const sliced = scale.slice(1, -1);
+                    const lstarValues = sliced.map(s => s.lstar);
+                    const lstarMin = cs.useCustomLstarRange ? cs.lstarMin : globalLstarMin;
+                    const lstarMax = cs.useCustomLstarRange ? cs.lstarMax : globalLstarMax;
+                    const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax);
+                    return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
+                  })();
 
                   return (
                     <div key={cs.id} className="flex items-center gap-2">
