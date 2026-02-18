@@ -17,8 +17,8 @@ export default function ColorScaleEditor() {
   const [grayScaleName, setGrayScaleName] = useState('gray');
   const [numSwatches, setNumSwatches] = useState(12); // Number of visible swatches (excluding white and black)
   const [harmonizingScale, setHarmonizingScale] = useState(null);
-  const [previewColors, setPreviewColors] = useState(null); // Store preview colors before adding (array of 5 options)
-  const [selectedPreview, setSelectedPreview] = useState(0); // Which preview option is selected
+  const [previewColorsByFamily, setPreviewColorsByFamily] = useState(null); // Store preview colors grouped by family
+  const [selectedPreviews, setSelectedPreviews] = useState(new Set()); // Set of selected previews like "purple-0", "yellow-2"
   const [isGenerating, setIsGenerating] = useState(false); // Loading state for API calls
   const [baseColorScaleId, setBaseColorScaleId] = useState(null); // Which color scale to use as base for harmonious colors
   const miniCanvasRefs = useRef({});
@@ -494,46 +494,47 @@ export default function ColorScaleEditor() {
       blue: 225,
       indigo: 240,
       violet: 280,
-      purple: 270
+      purple: 270,
+      'warm-gray': 40,
+      'cool-gray': 220
     };
 
     // Start loading
     setIsGenerating(true);
-    setPreviewColors(null);
+    setPreviewColorsByFamily(null);
+    setSelectedPreviews(new Set());
 
-    // Generate 5 different options
-    const allOptions = [];
+    // Generate 5 options for each selected family
+    const colorsByFamily = {};
 
-    for (let optionIndex = 0; optionIndex < 5; optionIndex++) {
-      try {
-        // Use Colormind API to get harmonious colors
-        // Use selected base color or default to first color scale
-        const baseScale = baseColorScaleId
-          ? colorScales.find(cs => cs.id === baseColorScaleId)
-          : colorScales[0];
+    // Use selected base color or default to first color scale
+    const baseScale = baseColorScaleId
+      ? colorScales.find(cs => cs.id === baseColorScaleId)
+      : colorScales[0];
 
-        const input = baseScale
-          ? [hexToRgb(baseScale.hex), "N", "N", "N", "N"].map(item =>
-              typeof item === 'string' ? item : [item.r, item.g, item.b])
-          : ["N", "N", "N", "N", "N"];
+    for (const family of selectedFamilies) {
+      const targetHue = colorFamilyHues[family];
+      const familyOptions = [];
 
-        const response = await fetch('http://colormind.io/api/', {
-          method: 'POST',
-          body: JSON.stringify({
-            model: 'default',
-            input: input
-          })
-        });
+      for (let optionIndex = 0; optionIndex < 5; optionIndex++) {
+        try {
+          const input = baseScale
+            ? [hexToRgb(baseScale.hex), "N", "N", "N", "N"].map(item =>
+                typeof item === 'string' ? item : [item.r, item.g, item.b])
+            : ["N", "N", "N", "N", "N"];
 
-        const data = await response.json();
+          const response = await fetch('http://colormind.io/api/', {
+            method: 'POST',
+            body: JSON.stringify({
+              model: 'default',
+              input: input
+            })
+          });
 
-        if (data.result) {
-          const palette = data.result;
-          const newColors = [];
+          const data = await response.json();
 
-          // Match each generated color to the closest selected family by hue
-          selectedFamilies.forEach((family) => {
-            const targetHue = colorFamilyHues[family];
+          if (data.result) {
+            const palette = data.result;
 
             // Find the color in the palette that's closest to this hue family
             let closestColor = null;
@@ -555,68 +556,65 @@ export default function ColorScaleEditor() {
 
             // If no good match, generate a color with the target hue
             let finalRgb;
+            const isGray = family === 'warm-gray' || family === 'cool-gray';
+
             if (closestColor && minHueDiff < 60) {
               // Use API color but shift hue to match family
               const apiHsl = rgbToHsl(closestColor[0], closestColor[1], closestColor[2]);
-              finalRgb = hslToRgb(targetHue, apiHsl.s, apiHsl.l);
+              // For grays, use very low saturation; for colors, use API saturation
+              const saturation = isGray ? 0.02 + (Math.random() * 0.03) : apiHsl.s;
+              finalRgb = hslToRgb(targetHue, saturation, apiHsl.l);
             } else {
               // Fallback to simple generation
-              const saturation = 0.65 + (Math.random() * 0.2);
+              const saturation = isGray ? 0.02 + (Math.random() * 0.03) : 0.65 + (Math.random() * 0.2);
               const lightness = 0.50 + (Math.random() * 0.1);
               finalRgb = hslToRgb(targetHue, saturation, lightness);
             }
 
             const hex = rgbToHex(finalRgb.r, finalRgb.g, finalRgb.b);
+            familyOptions.push(hex);
+          }
+        } catch (error) {
+          console.error('Error calling Colormind API:', error);
+          console.log('Falling back to simple color generation for family', family, 'option', optionIndex);
 
-            newColors.push({
-              family: family,
-              hex: hex
-            });
-          });
-
-          allOptions.push(newColors);
-        }
-      } catch (error) {
-        console.error('Error calling Colormind API:', error);
-        console.log('Falling back to simple color generation for option', optionIndex);
-
-        // Fallback to simple generation if API fails
-        const newColors = [];
-
-        selectedFamilies.forEach((family) => {
-          const hue = colorFamilyHues[family];
-          const saturation = 0.65 + (Math.random() * 0.2);
+          // Fallback to simple generation if API fails
+          const isGray = family === 'warm-gray' || family === 'cool-gray';
+          const saturation = isGray ? 0.02 + (Math.random() * 0.03) : 0.65 + (Math.random() * 0.2);
           const lightness = 0.50 + (Math.random() * 0.1);
 
-          const rgb = hslToRgb(hue, saturation, lightness);
+          const rgb = hslToRgb(targetHue, saturation, lightness);
           const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
 
-          newColors.push({
-            family: family,
-            hex: hex
-          });
-        });
-
-        allOptions.push(newColors);
+          familyOptions.push(hex);
+        }
       }
+
+      colorsByFamily[family] = familyOptions;
     }
 
-    setPreviewColors(allOptions);
-    setSelectedPreview(0);
+    setPreviewColorsByFamily(colorsByFamily);
     setIsGenerating(false);
   };
 
   const applyPreviewColors = () => {
-    if (!previewColors || !previewColors[selectedPreview]) return;
+    if (!previewColorsByFamily || selectedPreviews.size === 0) return;
 
-    const selectedColors = previewColors[selectedPreview];
     const newScales = [];
+    let scaleIndex = 0;
 
-    selectedColors.forEach((colorData, index) => {
+    // Convert Set to array and process each selection
+    Array.from(selectedPreviews).forEach((selectionKey) => {
+      // Handle multi-word family names like "warm-gray" by splitting from the right
+      const lastDashIndex = selectionKey.lastIndexOf('-');
+      const family = selectionKey.substring(0, lastDashIndex);
+      const optionIndex = parseInt(selectionKey.substring(lastDashIndex + 1));
+      const hex = previewColorsByFamily[family][optionIndex];
+
       const newScale = {
-        id: nextColorId + index,
-        name: `${colorData.family}-${nextColorId + index + 1}`,
-        hex: colorData.hex,
+        id: nextColorId + scaleIndex,
+        name: `${family}-${nextColorId + scaleIndex + 1}`,
+        hex: hex,
         lightSurface: false,
         useCustomBezier: false,
         useCustomLstarRange: false,
@@ -633,12 +631,13 @@ export default function ColorScaleEditor() {
         cp2: { x: 0.50, y: 0.60 }
       };
       newScales.push(newScale);
+      scaleIndex++;
     });
 
     setColorScales([...colorScales, ...newScales]);
     setNextColorId(nextColorId + newScales.length);
-    setPreviewColors(null);
-    setSelectedPreview(0);
+    setPreviewColorsByFamily(null);
+    setSelectedPreviews(new Set());
 
     // Uncheck all checkboxes
     const checkboxes = document.querySelectorAll('.harmonious-color-checkbox:checked');
@@ -646,8 +645,21 @@ export default function ColorScaleEditor() {
   };
 
   const cancelPreview = () => {
-    setPreviewColors(null);
-    setSelectedPreview(0);
+    setPreviewColorsByFamily(null);
+    setSelectedPreviews(new Set());
+  };
+
+  const togglePreviewSelection = (family, optionIndex) => {
+    const selectionKey = `${family}-${optionIndex}`;
+    const newSelected = new Set(selectedPreviews);
+
+    if (newSelected.has(selectionKey)) {
+      newSelected.delete(selectionKey);
+    } else {
+      newSelected.add(selectionKey);
+    }
+
+    setSelectedPreviews(newSelected);
   };
 
   const addColorScale = () => {
@@ -715,9 +727,22 @@ export default function ColorScaleEditor() {
   };
 
   const toggleCustomLstarRange = (id) => {
-    setColorScales(colorScales.map(cs =>
-      cs.id === id ? { ...cs, useCustomLstarRange: !cs.useCustomLstarRange } : cs
-    ));
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === id) {
+        // When enabling custom range, initialize with current global values
+        if (!cs.useCustomLstarRange) {
+          return {
+            ...cs,
+            useCustomLstarRange: true,
+            lstarMin: globalLstarMin,
+            lstarMax: globalLstarMax
+          };
+        } else {
+          return { ...cs, useCustomLstarRange: false };
+        }
+      }
+      return cs;
+    }));
   };
 
   const toggleLockKeyColor = (id) => {
@@ -800,7 +825,7 @@ export default function ColorScaleEditor() {
 
   const resetLstarRange = (id) => {
     setColorScales(colorScales.map(cs =>
-      cs.id === id ? { ...cs, lstarMin: 0, lstarMax: 100 } : cs
+      cs.id === id ? { ...cs, lstarMin: globalLstarMin, lstarMax: globalLstarMax } : cs
     ));
   };
 
@@ -1986,6 +2011,8 @@ export default function ColorScaleEditor() {
                     { name: 'Indigo', value: 'indigo', color: '#6366f1' },
                     { name: 'Violet', value: 'violet', color: '#8b5cf6' },
                     { name: 'Purple', value: 'purple', color: '#a855f7' },
+                    { name: 'Warm Gray', value: 'warm-gray', color: '#a8a29e' },
+                    { name: 'Cool Gray', value: 'cool-gray', color: '#9ca3af' },
                   ].map((family) => (
                     <label
                       key={family.value}
@@ -2045,10 +2072,15 @@ export default function ColorScaleEditor() {
             )}
 
             {/* Preview Area */}
-            {!isGenerating && previewColors && (
+            {!isGenerating && previewColorsByFamily && (
               <div className="mt-4 p-4 bg-black border border-zinc-700 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-white">Preview - Select an option</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm font-medium text-gray-300">
+                    Preview Options - Select one or more from each family
+                    {selectedPreviews.size > 0 && (
+                      <span className="ml-2 text-purple-400">({selectedPreviews.size} selected)</span>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={generateHarmoniousColors}
@@ -2058,9 +2090,14 @@ export default function ColorScaleEditor() {
                     </button>
                     <button
                       onClick={applyPreviewColors}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium text-white transition-colors"
+                      disabled={selectedPreviews.size === 0}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
+                        selectedPreviews.size === 0
+                          ? 'bg-zinc-700 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700'
+                      }`}
                     >
-                      Add Selected
+                      Add Selected ({selectedPreviews.size})
                     </button>
                     <button
                       onClick={cancelPreview}
@@ -2070,28 +2107,35 @@ export default function ColorScaleEditor() {
                     </button>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  {previewColors.map((option, optionIndex) => (
-                    <div
-                      key={optionIndex}
-                      onClick={() => setSelectedPreview(optionIndex)}
-                      className={`flex flex-col gap-2 p-3 rounded-lg cursor-pointer transition-all ${
-                        selectedPreview === optionIndex
-                          ? 'bg-zinc-800 border-2 border-purple-500'
-                          : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
-                      }`}
-                    >
-                      <div className="text-xs font-medium text-gray-400 mb-1">Option {optionIndex + 1}</div>
-                      <div className="flex gap-2">
-                        {option.map((colorData, colorIndex) => (
-                          <div key={colorIndex} className="flex flex-col items-center gap-1">
+                <div className="flex flex-col gap-6">
+                  {Object.entries(previewColorsByFamily).map(([family, options]) => (
+                    <div key={family} className="flex flex-col gap-2">
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider capitalize">
+                        {family}
+                      </div>
+                      <div className="flex gap-3">
+                        {options.map((hex, optionIndex) => {
+                          const selectionKey = `${family}-${optionIndex}`;
+                          const isSelected = selectedPreviews.has(selectionKey);
+
+                          return (
                             <div
-                              className="w-12 h-12 rounded border border-zinc-600"
-                              style={{ backgroundColor: colorData.hex }}
-                            />
-                            <span className="text-xs text-gray-500 capitalize">{colorData.family}</span>
-                          </div>
-                        ))}
+                              key={optionIndex}
+                              onClick={() => togglePreviewSelection(family, optionIndex)}
+                              className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'bg-zinc-800 border-2 border-purple-500'
+                                  : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
+                              }`}
+                            >
+                              <div
+                                className="w-16 h-16 rounded border border-zinc-600"
+                                style={{ backgroundColor: hex }}
+                              />
+                              <div className="text-xs font-mono text-gray-400">{hex}</div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
