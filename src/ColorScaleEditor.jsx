@@ -21,6 +21,9 @@ export default function ColorScaleEditor() {
   const [selectedPreviews, setSelectedPreviews] = useState(new Set()); // Set of selected previews like "purple-0", "yellow-2"
   const [isGenerating, setIsGenerating] = useState(false); // Loading state for API calls
   const [baseColorScaleId, setBaseColorScaleId] = useState(null); // Which color scale to use as base for harmonious colors
+  const [desaturatedScales, setDesaturatedScales] = useState(new Set()); // Set of scale IDs that are in desaturate/luminance mode
+  const [isGrayScaleDesaturated, setIsGrayScaleDesaturated] = useState(false); // Whether the gray scale is in desaturate/luminance mode
+  const [isComparisonDesaturated, setIsComparisonDesaturated] = useState(false); // Whether all scales in comparison section are in desaturate/luminance mode
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -70,6 +73,45 @@ export default function ColorScaleEditor() {
     rgb = Math.max(0, Math.min(1, rgb));
     const value = Math.round(rgb * 255);
     return { r: value, g: value, b: value };
+  };
+
+  // Calculate L* (perceptual lightness) from RGB
+  const rgbToLstar = (r, g, b) => {
+    // Normalize RGB values to 0-1
+    let rNorm = r / 255;
+    let gNorm = g / 255;
+    let bNorm = b / 255;
+
+    // Convert to linear RGB
+    const toLinear = (c) => {
+      if (c <= 0.04045) {
+        return c / 12.92;
+      } else {
+        return Math.pow((c + 0.055) / 1.055, 2.4);
+      }
+    };
+
+    rNorm = toLinear(rNorm);
+    gNorm = toLinear(gNorm);
+    bNorm = toLinear(bNorm);
+
+    // Convert to XYZ (using D65 illuminant)
+    const x = rNorm * 0.4124564 + gNorm * 0.3575761 + bNorm * 0.1804375;
+    const y = rNorm * 0.2126729 + gNorm * 0.7151522 + bNorm * 0.0721750;
+    const z = rNorm * 0.0193339 + gNorm * 0.1191920 + bNorm * 0.9503041;
+
+    // Normalize for D65 white point
+    const yNorm = y / 1.0;
+
+    // Convert to L*
+    let lstar;
+    if (yNorm <= 0.008856) {
+      lstar = 903.3 * yNorm;
+    } else {
+      lstar = 116 * Math.pow(yNorm, 1/3) - 16;
+    }
+
+    return lstar;
   };
 
   // RGB to hex
@@ -145,6 +187,19 @@ export default function ColorScaleEditor() {
       g: Math.round((g + m) * 255),
       b: Math.round((b + m) * 255)
     };
+  };
+
+  // Convert hex color to grayscale using actual perceptual L*
+  const hexToGrayscale = (hex) => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+
+    // Calculate the actual L* from the RGB values
+    const lstar = rgbToLstar(rgb.r, rgb.g, rgb.b);
+
+    // Convert L* to grayscale RGB
+    const grayRgb = lstarToRgb(lstar);
+    return rgbToHex(grayRgb.r, grayRgb.g, grayRgb.b);
   };
 
   // Get color at specific lightness
@@ -718,6 +773,18 @@ export default function ColorScaleEditor() {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, lightSurface: !cs.lightSurface } : cs
     ));
+  };
+
+  const toggleDesaturateScale = (id) => {
+    setDesaturatedScales(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const toggleCustomBezier = (id) => {
@@ -1295,16 +1362,29 @@ export default function ColorScaleEditor() {
           <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">Gray Scale</h2>
-              <button
-                onClick={() => setLightSurface(!lightSurface)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  lightSurface
-                    ? 'bg-white text-black hover:bg-gray-200'
-                    : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
-                }`}
-              >
-                {lightSurface ? 'Light Surface' : 'Dark Surface'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLightSurface(!lightSurface)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    lightSurface
+                      ? 'bg-white text-black hover:bg-gray-200'
+                      : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                  }`}
+                >
+                  {lightSurface ? 'Light Surface' : 'Dark Surface'}
+                </button>
+                <button
+                  onClick={() => setIsGrayScaleDesaturated(!isGrayScaleDesaturated)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    isGrayScaleDesaturated
+                      ? 'bg-gray-400 text-black hover:bg-gray-300'
+                      : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                  }`}
+                  title="Toggle grayscale to preview lightness values"
+                >
+                  {isGrayScaleDesaturated ? 'Luminance' : 'Color'}
+                </button>
+              </div>
             </div>
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
@@ -1327,7 +1407,11 @@ export default function ColorScaleEditor() {
                 style={{ background: lightSurface ? '#ffffff' : '#000000' }}
               >
                 {grayScale.map((v, i) => (
-                  <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
+                  <div
+                    key={i}
+                    className="flex-1 rounded"
+                    style={{ background: isGrayScaleDesaturated ? hexToGrayscale(v.hex) : v.hex }}
+                  />
                 ))}
               </div>
               {hoveredSwatch.scaleId === 'gray' && hoveredSwatch.index !== null && (
@@ -1442,6 +1526,17 @@ export default function ColorScaleEditor() {
                       }`}
                     >
                       {cs.lightSurface ? 'Light Surface' : 'Dark Surface'}
+                    </button>
+                    <button
+                      onClick={() => toggleDesaturateScale(cs.id)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        desaturatedScales.has(cs.id)
+                          ? 'bg-gray-400 text-black hover:bg-gray-300'
+                          : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                      }`}
+                      title="Toggle grayscale to preview lightness values"
+                    >
+                      {desaturatedScales.has(cs.id) ? 'Luminance' : 'Color'}
                     </button>
                     <button
                       onClick={() => removeColorScale(cs.id)}
@@ -1785,7 +1880,11 @@ export default function ColorScaleEditor() {
                     style={{ background: cs.lightSurface ? '#ffffff' : '#000000' }}
                   >
                     {scale.map((v, i) => (
-                      <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
+                      <div
+                        key={i}
+                        className="flex-1 rounded"
+                        style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex }}
+                      />
                     ))}
                   </div>
                   {hoveredSwatch.scaleId === cs.id && hoveredSwatch.index !== null && (
@@ -1901,16 +2000,29 @@ export default function ColorScaleEditor() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">All Scales Comparison</h2>
-              <button
-                onClick={() => setComparisonLightSurface(!comparisonLightSurface)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  comparisonLightSurface
-                    ? 'bg-white text-black hover:bg-gray-200'
-                    : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
-                }`}
-              >
-                {comparisonLightSurface ? 'Light Surface' : 'Dark Surface'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setComparisonLightSurface(!comparisonLightSurface)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    comparisonLightSurface
+                      ? 'bg-white text-black hover:bg-gray-200'
+                      : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                  }`}
+                >
+                  {comparisonLightSurface ? 'Light Surface' : 'Dark Surface'}
+                </button>
+                <button
+                  onClick={() => setIsComparisonDesaturated(!isComparisonDesaturated)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    isComparisonDesaturated
+                      ? 'bg-gray-400 text-black hover:bg-gray-300'
+                      : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                  }`}
+                  title="Toggle grayscale for all scales to preview lightness values"
+                >
+                  {isComparisonDesaturated ? 'Luminance' : 'Color'}
+                </button>
+              </div>
             </div>
             <div
               className="rounded-lg p-4"
@@ -1919,14 +2031,31 @@ export default function ColorScaleEditor() {
               <div className="space-y-2">
                 {/* Gray Scale */}
                 <div className="flex items-center gap-2">
-                  <div className="w-24 flex-shrink-0">
+                  <div className="w-24 flex-shrink-0 flex items-center gap-1">
                     <span className={`text-xs font-medium ${comparisonLightSurface ? 'text-gray-800' : 'text-gray-300'}`}>
                       Gray
                     </span>
+                    <button
+                      onClick={() => setIsGrayScaleDesaturated(!isGrayScaleDesaturated)}
+                      className="p-0.5 hover:bg-zinc-700 rounded transition-colors"
+                      title="Toggle luminance view"
+                    >
+                      <span className={`material-symbols-rounded text-[14px] ${
+                        isGrayScaleDesaturated
+                          ? comparisonLightSurface ? 'text-gray-600' : 'text-gray-400'
+                          : comparisonLightSurface ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {isGrayScaleDesaturated ? 'contrast' : 'palette'}
+                      </span>
+                    </button>
                   </div>
                   <div className="flex gap-2 flex-1 h-8">
                     {grayScale.map((v, i) => (
-                      <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
+                      <div
+                        key={i}
+                        className="flex-1 rounded"
+                        style={{ background: (isComparisonDesaturated || isGrayScaleDesaturated) ? hexToGrayscale(v.hex) : v.hex }}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1960,18 +2089,35 @@ export default function ColorScaleEditor() {
 
                   return (
                     <div key={cs.id} className="flex items-center gap-2">
-                      <div className="w-24 flex-shrink-0 flex items-center gap-2">
+                      <div className="w-24 flex-shrink-0 flex items-center gap-1">
                         <div
                           className="w-4 h-4 rounded border border-gray-600"
                           style={{ background: cs.hex }}
                         />
                         <span className={`text-xs font-medium ${comparisonLightSurface ? 'text-gray-800' : 'text-gray-300'}`}>
-                          {cs.hex}
+                          {cs.name}
                         </span>
+                        <button
+                          onClick={() => toggleDesaturateScale(cs.id)}
+                          className="p-0.5 hover:bg-zinc-700 rounded transition-colors ml-auto"
+                          title="Toggle luminance view"
+                        >
+                          <span className={`material-symbols-rounded text-[14px] ${
+                            desaturatedScales.has(cs.id)
+                              ? comparisonLightSurface ? 'text-gray-600' : 'text-gray-400'
+                              : comparisonLightSurface ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            {desaturatedScales.has(cs.id) ? 'contrast' : 'palette'}
+                          </span>
+                        </button>
                       </div>
                       <div className="flex gap-2 flex-1 h-8">
                         {scale.map((v, i) => (
-                          <div key={i} className="flex-1 rounded" style={{ background: v.hex }} />
+                          <div
+                            key={i}
+                            className="flex-1 rounded"
+                            style={{ background: (isComparisonDesaturated || desaturatedScales.has(cs.id)) ? hexToGrayscale(v.hex) : v.hex }}
+                          />
                         ))}
                       </div>
                     </div>
