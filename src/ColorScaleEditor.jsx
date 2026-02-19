@@ -47,6 +47,7 @@ export default function ColorScaleEditor() {
   const [useLightnessNumbering, setUseLightnessNumbering] = useState(false); // Toggle between sequential (100, 200...) and lightness-based (98, 90, 80...) numbering
   const [customIncrement, setCustomIncrement] = useState(10); // Custom increment for sequential numbering (e.g., 10 for 10, 20, 30...)
   const [useCustomIncrement, setUseCustomIncrement] = useState(false); // Whether to use custom increment instead of 100
+  const [showVisualControls, setShowVisualControls] = useState(false); // Toggle to show/hide visual sliders and bezier canvas
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -552,7 +553,7 @@ export default function ColorScaleEditor() {
     ctx.font = '14px monospace';
     ctx.fillText(`P1 (${cp1.x.toFixed(2)}, ${cp1.y.toFixed(2)})`, p1.x + 15, p1.y - 10);
     ctx.fillText(`P2 (${cp2.x.toFixed(2)}, ${cp2.y.toFixed(2)})`, p2.x + 15, p2.y - 10);
-  }, [cp1, cp2]);
+  }, [cp1, cp2, showVisualControls]);
 
   // Canvas mouse handlers
   const handleCanvasMouseDown = (e) => {
@@ -1437,19 +1438,11 @@ export default function ColorScaleEditor() {
         <h1 className="text-7xl font-light text-white mb-2 font-space-grotesk">Primitive Color Builder</h1>
         <p className="text-gray-500 mb-8">Interactive bezier curve editor for perceptually uniform color scales</p>
 
+        {/* Global Settings - Compact Input Controls */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex items-center gap-3">
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Bezier Control Points
-              </label>
-              <button
-                onClick={resetBezierPoints}
-                className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
+          {/* Compact Controls Row */}
+          <div className="flex flex-wrap items-center gap-6 mb-4">
+            {/* Swatches Count */}
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Swatches:
@@ -1460,176 +1453,235 @@ export default function ColorScaleEditor() {
                 onChange={(e) => setNumSwatches(Math.max(4, Math.min(20, parseInt(e.target.value) || 12)))}
                 min="4"
                 max="20"
-                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
             </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="flex gap-2 items-center">
-                <span className="text-sm">P1:</span>
-                <input
-                  type="number"
-                  value={cp1.x}
-                  onChange={(e) => setCp1({ ...cp1, x: parseFloat(e.target.value) })}
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  className="w-20 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
-                />
-                <input
-                  type="number"
-                  value={cp1.y}
-                  onChange={(e) => setCp1({ ...cp1, y: parseFloat(e.target.value) })}
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  className="w-20 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
-                />
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="flex gap-2 items-center">
-                <span className="text-sm">P2:</span>
-                <input
-                  type="number"
-                  value={cp2.x}
-                  onChange={(e) => setCp2({ ...cp2, x: parseFloat(e.target.value) })}
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  className="w-20 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
-                />
-                <input
-                  type="number"
-                  value={cp2.y}
-                  onChange={(e) => setCp2({ ...cp2, y: parseFloat(e.target.value) })}
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  className="w-20 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Token Numbers:
-            </label>
-            <button
-              onClick={() => setUseLightnessNumbering(false)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                !useLightnessNumbering
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-              }`}
-            >
-              Sequential (100, 200...)
-            </button>
-            <button
-              onClick={() => setUseLightnessNumbering(true)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                useLightnessNumbering
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-              }`}
-            >
-              Lightness (90, 80, 70...)
-            </button>
-          </div>
-          {useLightnessNumbering && (
-            <div className="mt-2 text-xs text-gray-400">
-              Numbers based on L* values: prioritizes 10s (90, 80, 70...), then 5s (95, 85...), then smaller increments as needed.
-            </div>
-          )}
-          {!useLightnessNumbering && (
-            <div className="mt-3 flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useCustomIncrement}
-                  onChange={(e) => setUseCustomIncrement(e.target.checked)}
-                  className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
-                />
-                <span className="text-xs font-medium text-gray-400">Custom increment:</span>
-              </label>
+            {/* Bezier Control Points - Compact */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500">P1:</label>
               <input
                 type="number"
-                value={customIncrement}
-                onChange={(e) => setCustomIncrement(Math.max(1, parseInt(e.target.value) || 10))}
-                disabled={!useCustomIncrement}
-                min="1"
-                max="1000"
-                className={`w-20 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600 ${
-                  !useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                value={cp1.x}
+                onChange={(e) => setCp1({ ...cp1, x: parseFloat(e.target.value) })}
+                min="0"
+                max="1"
+                step="0.01"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
-              <span className="text-xs text-gray-500">
-                (e.g., 10 → 10, 20, 30...)
-              </span>
+              <input
+                type="number"
+                value={cp1.y}
+                onChange={(e) => setCp1({ ...cp1, y: parseFloat(e.target.value) })}
+                min="0"
+                max="1"
+                step="0.01"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+              />
             </div>
-          )}
-        </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Global L* Range (Lightness Limits)
-            </label>
-            <button
-              onClick={() => {
-                setGlobalLstarMin(10);
-                setGlobalLstarMax(98);
-              }}
-              className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
-            >
-              Reset
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500">P2:</label>
               <input
-                type="range"
-                min="5"
-                max="100"
-                value={globalLstarMax}
-                onChange={(e) => setGlobalLstarMax(parseInt(e.target.value))}
-                className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                type="number"
+                value={cp2.x}
+                onChange={(e) => setCp2({ ...cp2, x: parseFloat(e.target.value) })}
+                min="0"
+                max="1"
+                step="0.01"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
-              <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMax}</div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
               <input
-                type="range"
+                type="number"
+                value={cp2.y}
+                onChange={(e) => setCp2({ ...cp2, y: parseFloat(e.target.value) })}
+                min="0"
+                max="1"
+                step="0.01"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+              />
+              <button
+                onClick={resetBezierPoints}
+                className="ml-1 text-xs text-gray-500 hover:text-gray-300"
+                title="Reset bezier points"
+              >
+                ↺
+              </button>
+            </div>
+
+            {/* L* Range - Compact Number Inputs */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500">L* Range:</label>
+              <input
+                type="number"
+                value={globalLstarMin}
+                onChange={(e) => setGlobalLstarMin(Math.max(0, Math.min(95, parseInt(e.target.value) || 10)))}
                 min="0"
                 max="95"
-                value={globalLstarMin}
-                onChange={(e) => setGlobalLstarMin(parseInt(e.target.value))}
-                className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                placeholder="Min"
               />
-              <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMin}</div>
+              <span className="text-gray-600">–</span>
+              <input
+                type="number"
+                value={globalLstarMax}
+                onChange={(e) => setGlobalLstarMax(Math.max(5, Math.min(100, parseInt(e.target.value) || 98)))}
+                min="5"
+                max="100"
+                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                placeholder="Max"
+              />
+              <button
+                onClick={() => {
+                  setGlobalLstarMin(10);
+                  setGlobalLstarMax(98);
+                }}
+                className="ml-1 text-xs text-gray-500 hover:text-gray-300"
+                title="Reset L* range"
+              >
+                ↺
+              </button>
             </div>
           </div>
-          <div className="text-xs text-gray-500 mt-2">
-            Default lightness range for all color scales (use custom range in Advanced Settings to override)
-          </div>
-        </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <canvas
-            ref={canvasRef}
-            onMouseDown={handleCanvasMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleCanvasMouseUp}
-            onMouseLeave={handleCanvasMouseUp}
-            className="w-full h-96 rounded-lg cursor-crosshair"
-            style={{ width: '100%', height: '400px' }}
-          />
+          {/* Token Numbers & Export Row */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tokens:
+              </label>
+              <button
+                onClick={() => setUseLightnessNumbering(false)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  !useLightnessNumbering
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                }`}
+              >
+                Sequential
+              </button>
+              <button
+                onClick={() => setUseLightnessNumbering(true)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  useLightnessNumbering
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                }`}
+              >
+                Lightness
+              </button>
+              {!useLightnessNumbering && (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer ml-2">
+                    <input
+                      type="checkbox"
+                      checked={useCustomIncrement}
+                      onChange={(e) => setUseCustomIncrement(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <span className="text-xs font-medium text-gray-400">Custom:</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={customIncrement}
+                    onChange={(e) => setCustomIncrement(Math.max(1, parseInt(e.target.value) || 10))}
+                    disabled={!useCustomIncrement}
+                    min="1"
+                    max="1000"
+                    className={`w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600 ${
+                      !useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Export Button */}
+            <button
+              onClick={exportToFigmaTokens}
+              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>download</span>
+              Export Tokens
+            </button>
+          </div>
+
+          {/* Visual Controls Toggle */}
+          <button
+            onClick={() => setShowVisualControls(!showVisualControls)}
+            className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full justify-center py-2 border-t border-zinc-800 mt-4"
+          >
+            <span className="font-medium">{showVisualControls ? 'Hide' : 'Show'} Visual Controls</span>
+            <span
+              className="material-symbols-rounded transition-transform duration-300 ease-in-out"
+              style={{
+                fontSize: '18px',
+                transform: showVisualControls ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}
+            >
+              expand_more
+            </span>
+          </button>
+
+          {/* Visual Controls - Sliders and Canvas */}
+          <div
+            className="overflow-hidden transition-all duration-300 ease-in-out"
+            style={{
+              maxHeight: showVisualControls ? '800px' : '0',
+              opacity: showVisualControls ? 1 : 0,
+              marginTop: showVisualControls ? '24px' : '0'
+            }}
+          >
+            <div className="pt-6 border-t border-zinc-800 space-y-6">
+              {/* L* Range Sliders */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                  Global L* Range (Visual Sliders)
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="100"
+                      value={globalLstarMax}
+                      onChange={(e) => setGlobalLstarMax(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMax}</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="95"
+                      value={globalLstarMin}
+                      onChange={(e) => setGlobalLstarMin(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMin}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bezier Curve Canvas */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                  Bezier Curve (Visual Editor)
+                </label>
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={handleCanvasMouseUp}
+                  className="w-full h-80 bg-black border border-zinc-700 rounded-lg cursor-crosshair"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {colorScales.map((cs, scaleIndex) => {
@@ -2478,12 +2530,6 @@ export default function ColorScaleEditor() {
             className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
           >
             + Add Color Scale
-          </button>
-          <button
-            onClick={exportToFigmaTokens}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-medium text-white transition-colors"
-          >
-            Export to Figma Tokens
           </button>
           <button
             onClick={generateShareUrl}
