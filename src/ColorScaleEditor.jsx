@@ -1434,7 +1434,7 @@ export default function ColorScaleEditor() {
   return (
     <div className="min-h-screen bg-black text-gray-200 p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-7xl font-semibold text-white mb-2">Primitive Color Builder</h1>
+        <h1 className="text-7xl font-light text-white mb-2 font-space-grotesk">Primitive Color Builder</h1>
         <p className="text-gray-500 mb-8">Interactive bezier curve editor for perceptually uniform color scales</p>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
@@ -1680,7 +1680,7 @@ export default function ColorScaleEditor() {
             <div key={cs.id} className="flex gap-6 mb-6">
               <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold text-white">Color Scale</h2>
+                  <h2 className="text-lg font-semibold text-white font-fraunces">Color Scale</h2>
                   <div className="flex gap-2">
                     <div className="flex gap-1 border border-zinc-700 rounded-md overflow-hidden">
                       <button
@@ -2202,7 +2202,7 @@ export default function ColorScaleEditor() {
         {colorScales.length > 0 && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-white">All Scales Comparison</h2>
+              <h2 className="text-lg font-semibold text-white font-fraunces">All Scales Comparison</h2>
               <div className="flex gap-2">
                 <button
                   onClick={() => setComparisonLightSurface(!comparisonLightSurface)}
