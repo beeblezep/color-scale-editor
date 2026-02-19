@@ -1434,7 +1434,7 @@ export default function ColorScaleEditor() {
   return (
     <div className="min-h-screen bg-black text-gray-200 p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-semibold text-white mb-2">Color Scale Editor</h1>
+        <h1 className="text-7xl font-semibold text-white mb-2">Primitive Color Builder</h1>
         <p className="text-gray-500 mb-8">Interactive bezier curve editor for perceptually uniform color scales</p>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
