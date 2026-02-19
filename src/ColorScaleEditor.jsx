@@ -27,6 +27,8 @@ export default function ColorScaleEditor() {
   const [shareUrl, setShareUrl] = useState('');
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [useLightnessNumbering, setUseLightnessNumbering] = useState(false); // Toggle between sequential (100, 200...) and lightness-based (98, 90, 80...) numbering
+  const [customIncrement, setCustomIncrement] = useState(10); // Custom increment for sequential numbering (e.g., 10 for 10, 20, 30...)
+  const [useCustomIncrement, setUseCustomIncrement] = useState(false); // Whether to use custom increment instead of 100
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -263,9 +265,9 @@ export default function ColorScaleEditor() {
   };
 
   // Calculate step numbers from L* values with smart rounding
-  const calculateStepFromLstar = (lstarValues, useLightnessNumbering, lstarMin, lstarMax) => {
+  const calculateStepFromLstar = (lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment = 100) => {
     if (!useLightnessNumbering) {
-      return lstarValues.map((_, i) => (i + 1) * 100);
+      return lstarValues.map((_, i) => (i + 1) * increment);
     }
 
     const count = lstarValues.length;
@@ -841,7 +843,9 @@ export default function ColorScaleEditor() {
       numSwatches,
       lightSurface,
       comparisonLightSurface,
-      useLightnessNumbering
+      useLightnessNumbering,
+      customIncrement,
+      useCustomIncrement
     };
 
     try {
@@ -880,6 +884,8 @@ export default function ColorScaleEditor() {
       if (state.lightSurface !== undefined) setLightSurface(state.lightSurface);
       if (state.comparisonLightSurface !== undefined) setComparisonLightSurface(state.comparisonLightSurface);
       if (state.useLightnessNumbering !== undefined) setUseLightnessNumbering(state.useLightnessNumbering);
+      if (state.customIncrement !== undefined) setCustomIncrement(state.customIncrement);
+      if (state.useCustomIncrement !== undefined) setUseCustomIncrement(state.useCustomIncrement);
 
       return true;
     } catch (e) {
@@ -1340,7 +1346,8 @@ export default function ColorScaleEditor() {
   const grayScale = (() => {
     const scale = generateGrayScale(globalLstarMin, globalLstarMax).slice(1, -1);
     const lstarValues = scale.map(s => s.lstar);
-    const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, globalLstarMin, globalLstarMax);
+    const increment = useCustomIncrement ? customIncrement : 100;
+    const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, globalLstarMin, globalLstarMax, increment);
     return scale.map((swatch, i) => ({ ...swatch, step: steps[i] }));
   })();
 
@@ -1400,7 +1407,8 @@ export default function ColorScaleEditor() {
         const lstarValues = sliced.map(s => s.lstar);
         const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
         const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
-        const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax);
+        const increment = useCustomIncrement ? customIncrement : 100;
+        const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
         return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
       })();
 
@@ -1538,6 +1546,33 @@ export default function ColorScaleEditor() {
           {useLightnessNumbering && (
             <div className="mt-2 text-xs text-gray-400">
               Numbers based on L* values: prioritizes 10s (90, 80, 70...), then 5s (95, 85...), then smaller increments as needed.
+            </div>
+          )}
+          {!useLightnessNumbering && (
+            <div className="mt-3 flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useCustomIncrement}
+                  onChange={(e) => setUseCustomIncrement(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-xs font-medium text-gray-400">Custom increment:</span>
+              </label>
+              <input
+                type="number"
+                value={customIncrement}
+                onChange={(e) => setCustomIncrement(Math.max(1, parseInt(e.target.value) || 10))}
+                disabled={!useCustomIncrement}
+                min="1"
+                max="1000"
+                className={`w-20 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600 ${
+                  !useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              />
+              <span className="text-xs text-gray-500">
+                (e.g., 10 → 10, 20, 30...)
+              </span>
             </div>
           )}
         </div>
@@ -1719,7 +1754,8 @@ export default function ColorScaleEditor() {
             const lstarValues = sliced.map(s => s.lstar);
             const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
             const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
-            const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax);
+            const increment = useCustomIncrement ? customIncrement : 100;
+            const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
             return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
           })();
 
@@ -2349,9 +2385,10 @@ export default function ColorScaleEditor() {
                   scale = (() => {
                     const sliced = scale.slice(1, -1);
                     const lstarValues = sliced.map(s => s.lstar);
-                    const lstarMin = cs.useCustomLstarRange ? cs.lstarMin : globalLstarMin;
+                    const lstarMin = cs.useCustomLstarRange ? cs.lstarMin : globalLstarMax;
                     const lstarMax = cs.useCustomLstarRange ? cs.lstarMax : globalLstarMax;
-                    const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax);
+                    const increment = useCustomIncrement ? customIncrement : 100;
+                    const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
                     return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
                   })();
 
