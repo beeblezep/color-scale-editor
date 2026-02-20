@@ -28,7 +28,9 @@ export default function ColorScaleEditor() {
       hueShiftLight: 0,
       customSwatches: {},
       cp1: { x: 0.33, y: 0.00 },
-      cp2: { x: 0.50, y: 0.60 }
+      cp2: { x: 0.50, y: 0.60 },
+      isSingleColor: false,
+      swatchCountOverride: null
     }
   ]);
   const [nextColorId, setNextColorId] = useState(1);
@@ -51,6 +53,7 @@ export default function ColorScaleEditor() {
   const [useCustomIncrement, setUseCustomIncrement] = useState(false); // Whether to use custom increment instead of 100
   const [showVisualControls, setShowVisualControls] = useState(false); // Toggle to show/hide visual sliders and bezier canvas
   const [dragState, setDragState] = useState(null); // For drag-to-change number inputs
+  const [theme, setTheme] = useState('light'); // Theme mode: 'light' or 'dark'
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -457,7 +460,7 @@ export default function ColorScaleEditor() {
     ctx.clearRect(0, 0, rect.width, rect.height);
 
     // Grid
-    ctx.strokeStyle = '#2a2a2a';
+    ctx.strokeStyle = theme === 'light' ? '#e5e5e5' : '#2a2a2a';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 10; i++) {
       const x = padding + (i / 10) * graphWidth;
@@ -475,7 +478,7 @@ export default function ColorScaleEditor() {
     }
 
     // Axes
-    ctx.strokeStyle = '#444';
+    ctx.strokeStyle = theme === 'light' ? '#999' : '#444';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(padding, rect.height - padding);
@@ -484,7 +487,7 @@ export default function ColorScaleEditor() {
     ctx.stroke();
 
     // Linear reference
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = theme === 'light' ? '#bbb' : '#555';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
@@ -516,7 +519,7 @@ export default function ColorScaleEditor() {
     const p2 = toCanvasCoords(cp2.x, cp2.y);
     const p3 = toCanvasCoords(1, 1);
 
-    ctx.strokeStyle = '#666';
+    ctx.strokeStyle = theme === 'light' ? '#999' : '#666';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.beginPath();
@@ -543,7 +546,7 @@ export default function ColorScaleEditor() {
     ctx.stroke();
 
     // Labels
-    ctx.fillStyle = '#999';
+    ctx.fillStyle = theme === 'light' ? '#666' : '#999';
     ctx.font = '12px sans-serif';
     ctx.fillText('Input (0-1)', rect.width / 2 - 30, rect.height - 20);
     ctx.save();
@@ -556,7 +559,7 @@ export default function ColorScaleEditor() {
     ctx.font = '14px monospace';
     ctx.fillText(`P1 (${cp1.x.toFixed(2)}, ${cp1.y.toFixed(2)})`, p1.x + 15, p1.y - 10);
     ctx.fillText(`P2 (${cp2.x.toFixed(2)}, ${cp2.y.toFixed(2)})`, p2.x + 15, p2.y - 10);
-  }, [cp1, cp2, showVisualControls]);
+  }, [cp1, cp2, showVisualControls, theme]);
 
   // Canvas mouse handlers
   const handleCanvasMouseDown = (e) => {
@@ -861,7 +864,9 @@ export default function ColorScaleEditor() {
         hueShiftLight: 0,
         customSwatches: {},
         cp1: { x: 0.33, y: 0.00 },
-        cp2: { x: 0.50, y: 0.60 }
+        cp2: { x: 0.50, y: 0.60 },
+        isSingleColor: false,
+        swatchCountOverride: null
       };
       newScales.push(newScale);
       scaleIndex++;
@@ -1067,7 +1072,9 @@ export default function ColorScaleEditor() {
       hueShiftLight: 0,
       customSwatches: {},
       cp1: { x: 0.33, y: 0.00 },
-      cp2: { x: 0.50, y: 0.60 }
+      cp2: { x: 0.50, y: 0.60 },
+      isSingleColor: false,
+      swatchCountOverride: null
     };
     setColorScales([...colorScales, newScale]);
     setNextColorId(nextColorId + 1);
@@ -1075,6 +1082,17 @@ export default function ColorScaleEditor() {
 
   const removeColorScale = (id) => {
     setColorScales(colorScales.filter(cs => cs.id !== id));
+  };
+
+  // Helper function to determine effective swatch count for a scale
+  const getEffectiveSwatchCount = (cs) => {
+    if (cs.isSingleColor) {
+      return 1; // Force 1 swatch for single color mode
+    }
+    if (cs.swatchCountOverride !== null) {
+      return cs.swatchCountOverride; // Use per-scale override
+    }
+    return numSwatches; // Use global setting
   };
 
   const moveColorScale = (id, direction) => {
@@ -1087,6 +1105,31 @@ export default function ColorScaleEditor() {
     const newScales = [...colorScales];
     [newScales[index], newScales[newIndex]] = [newScales[newIndex], newScales[index]];
     setColorScales(newScales);
+  };
+
+  // Toggle single color mode for a scale
+  const toggleSingleColorMode = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, isSingleColor: !cs.isSingleColor } : cs
+    ));
+  };
+
+  // Update per-scale swatch count override
+  const updateSwatchCountOverride = (id, value) => {
+    const count = parseInt(value) || null;
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? {
+        ...cs,
+        swatchCountOverride: (count >= 1 && count <= 20) ? count : null
+      } : cs
+    ));
+  };
+
+  // Clear swatch count override, revert to global
+  const clearSwatchCountOverride = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, swatchCountOverride: null } : cs
+    ));
   };
 
   const updateColorScaleHex = (id, hex) => {
@@ -1307,7 +1350,7 @@ export default function ColorScaleEditor() {
   };
 
   // Draw mini canvas for a color scale
-  const drawMiniCanvas = (canvasId, cp1, cp2) => {
+  const drawMiniCanvas = (canvasId, cp1, cp2, currentTheme = theme) => {
     const canvas = miniCanvasRefs.current[canvasId];
     if (!canvas) return;
 
@@ -1324,7 +1367,7 @@ export default function ColorScaleEditor() {
     });
 
     // Grid
-    ctx.strokeStyle = '#2a2a2a';
+    ctx.strokeStyle = currentTheme === 'light' ? '#e5e5e5' : '#2a2a2a';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
       const x = padding + (i / 4) * (width - 2 * padding);
@@ -1364,7 +1407,7 @@ export default function ColorScaleEditor() {
     const p2 = toCanvasCoords(cp2.x, cp2.y);
     const p3 = toCanvasCoords(1, 1);
 
-    ctx.strokeStyle = '#666';
+    ctx.strokeStyle = currentTheme === 'light' ? '#999' : '#666';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 2]);
     ctx.beginPath();
@@ -1389,7 +1432,7 @@ export default function ColorScaleEditor() {
     });
 
     // Start/end points
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = currentTheme === 'light' ? '#999' : '#666';
     [p0, p3].forEach(point => {
       ctx.beginPath();
       ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
@@ -1494,57 +1537,85 @@ export default function ColorScaleEditor() {
 
     // Add all color scales (including gray scale)
     colorScales.forEach(cs => {
-      let scale = generateColorScale(
-        cs.hex,
-        cs.useCustomBezier ? cs.cp1 : null,
-        cs.useCustomBezier ? cs.cp2 : null,
-        (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin,
-        (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax,
-        cs.saturationMin,
-        cs.saturationMax,
-        cs.hueShiftDark,
-        cs.hueShiftLight
-      );
+      const effectiveSwatchCount = getEffectiveSwatchCount(cs);
 
-      const keyColorIndex = findKeyColorIndex(scale, cs.hex);
-
-      // If key color is locked, replace the closest swatch with exact hex
-      if (cs.lockKeyColor && keyColorIndex >= 0) {
-        scale[keyColorIndex] = {
-          ...scale[keyColorIndex],
-          hex: cs.hex
-        };
-      }
-
-      // Apply custom swatches
-      scale.forEach((swatch, i) => {
-        if (cs.customSwatches[swatch.step]) {
-          scale[i] = {
-            ...swatch,
-            hex: cs.customSwatches[swatch.step],
-            isCustom: true
-          };
-        }
-      });
-
-      // Remove white and black anchors and apply numbering
-      scale = (() => {
-        const sliced = scale.slice(1, -1);
-        const lstarValues = sliced.map(s => s.lstar);
-        const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
-        const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
-        const increment = useCustomIncrement ? customIncrement : 100;
-        const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
-        return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
-      })();
-
-      tokens.color[cs.name] = {};
-      scale.forEach(swatch => {
-        tokens.color[cs.name][swatch.step] = {
-          value: swatch.hex,
+      // Handle single colors differently
+      if (cs.isSingleColor) {
+        // Single color: export as color.name without step number
+        tokens.color[cs.name] = {
+          value: cs.hex,
           type: "color"
         };
-      });
+      } else {
+        // Regular scale generation
+        const tempSteps = effectiveSwatchCount + 2;
+        const values = [];
+
+        for (let i = 0; i < tempSteps; i++) {
+          let hex, lstar;
+
+          if (i === 0) {
+            hex = '#ffffff';
+            lstar = 100;
+          } else if (i === tempSteps - 1) {
+            hex = '#000000';
+            lstar = 0;
+          } else {
+            const t = i / (tempSteps - 1);
+            const easedT = cs.useCustomBezier
+              ? getBezierYWithPoints(t, cs.cp1, cs.cp2)
+              : getBezierY(t);
+            const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
+            const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
+            lstar = lstarMax - easedT * (lstarMax - lstarMin);
+            hex = getColorAtLightness(cs.hex, lstar, lstarMin, lstarMax, cs.saturationMin, cs.saturationMax, cs.hueShiftDark, cs.hueShiftLight);
+          }
+
+          const step = (i + 1) * 100;
+          values.push({ step, hex, lstar: lstar.toFixed(1) });
+        }
+        let scale = values;
+
+        const keyColorIndex = findKeyColorIndex(scale, cs.hex);
+
+        // If key color is locked, replace the closest swatch with exact hex
+        if (cs.lockKeyColor && keyColorIndex >= 0) {
+          scale[keyColorIndex] = {
+            ...scale[keyColorIndex],
+            hex: cs.hex
+          };
+        }
+
+        // Apply custom swatches
+        scale.forEach((swatch, i) => {
+          if (cs.customSwatches[swatch.step]) {
+            scale[i] = {
+              ...swatch,
+              hex: cs.customSwatches[swatch.step],
+              isCustom: true
+            };
+          }
+        });
+
+        // Remove white and black anchors and apply numbering
+        scale = (() => {
+          const sliced = scale.slice(1, -1);
+          const lstarValues = sliced.map(s => s.lstar);
+          const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
+          const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
+          const increment = useCustomIncrement ? customIncrement : 100;
+          const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
+          return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
+        })();
+
+        tokens.color[cs.name] = {};
+        scale.forEach(swatch => {
+          tokens.color[cs.name][swatch.step] = {
+            value: swatch.hex,
+            type: "color"
+          };
+        });
+      }
     });
 
     // Create and download JSON file
@@ -1561,19 +1632,50 @@ export default function ColorScaleEditor() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-gray-200 p-8">
+    <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-black text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-7xl font-light text-white mb-2 font-space-grotesk">Primitive Color Builder</h1>
-        <p className="text-gray-500 mb-8">Interactive bezier curve editor for perceptually uniform color scales</p>
+        <h1 className={`text-7xl font-light mb-2 font-space-grotesk ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Primitive Color Builder</h1>
+        <p className={`mb-8 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>Interactive bezier curve editor for perceptually uniform color scales</p>
 
         {/* Global Settings - Compact Input Controls */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
+        <div className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
           {/* Compact Controls Row */}
           <div className="flex flex-wrap items-center gap-6 mb-4">
+            {/* Theme Toggle */}
+            <div className="flex items-center gap-2">
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                Theme:
+              </label>
+              <button
+                onClick={() => setTheme('light')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  theme === 'light'
+                    ? 'bg-blue-600 text-white'
+                    : theme === 'light'
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                }`}
+              >
+                Light
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-blue-600 text-white'
+                    : theme === 'light'
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                }`}
+              >
+                Dark
+              </button>
+            </div>
+
             {/* Swatches Count */}
             <div className="flex items-center gap-2">
               <label
-                className="text-xs font-medium text-gray-500 uppercase tracking-wider cursor-ew-resize select-none"
+                className={`text-xs font-medium uppercase tracking-wider cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, numSwatches, setNumSwatches, 4, 20, 1)}
                 title="Drag to change"
               >
@@ -1585,14 +1687,18 @@ export default function ColorScaleEditor() {
                 onChange={(e) => setNumSwatches(Math.max(4, Math.min(20, parseInt(e.target.value) || 12)))}
                 min="4"
                 max="20"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
               />
             </div>
 
             {/* Bezier Control Points - Compact */}
             <div className="flex items-center gap-2">
               <label
-                className="text-xs font-medium text-gray-500 cursor-ew-resize select-none"
+                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, cp1.x, (v) => setCp1({ ...cp1, x: v }), 0, 1, 0.01)}
                 title="Drag to change X"
               >
@@ -1605,7 +1711,11 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
               />
               <input
                 type="number"
@@ -1614,13 +1724,17 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
               />
             </div>
 
             <div className="flex items-center gap-2">
               <label
-                className="text-xs font-medium text-gray-500 cursor-ew-resize select-none"
+                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, cp2.x, (v) => setCp2({ ...cp2, x: v }), 0, 1, 0.01)}
                 title="Drag to change X"
               >
@@ -1633,7 +1747,11 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
               />
               <input
                 type="number"
@@ -1642,11 +1760,15 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
               />
               <button
                 onClick={resetBezierPoints}
-                className="ml-1 text-xs text-gray-500 hover:text-gray-300"
+                className={`ml-1 text-xs ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
                 title="Reset bezier points"
               >
                 ↺
@@ -1656,7 +1778,7 @@ export default function ColorScaleEditor() {
             {/* L* Range - Compact Number Inputs */}
             <div className="flex items-center gap-2">
               <label
-                className="text-xs font-medium text-gray-500 cursor-ew-resize select-none"
+                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, globalLstarMin, setGlobalLstarMin, 0, 95, 1)}
                 title="Drag to change Min"
               >
@@ -1668,17 +1790,25 @@ export default function ColorScaleEditor() {
                 onChange={(e) => setGlobalLstarMin(Math.max(0, Math.min(95, parseInt(e.target.value) || 10)))}
                 min="0"
                 max="95"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
                 placeholder="Min"
               />
-              <span className="text-gray-600">–</span>
+              <span className={theme === 'light' ? 'text-gray-400' : 'text-gray-600'}>–</span>
               <input
                 type="number"
                 value={globalLstarMax}
                 onChange={(e) => setGlobalLstarMax(Math.max(5, Math.min(100, parseInt(e.target.value) || 98)))}
                 min="5"
                 max="100"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                }`}
                 placeholder="Max"
               />
               <button
@@ -1686,7 +1816,7 @@ export default function ColorScaleEditor() {
                   setGlobalLstarMin(10);
                   setGlobalLstarMax(98);
                 }}
-                className="ml-1 text-xs text-gray-500 hover:text-gray-300"
+                className={`ml-1 text-xs ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
                 title="Reset L* range"
               >
                 ↺
@@ -1697,7 +1827,7 @@ export default function ColorScaleEditor() {
           {/* Token Numbers & Export Row */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                 Tokens:
               </label>
               <button
@@ -1705,7 +1835,9 @@ export default function ColorScaleEditor() {
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   useLightnessNumbering
                     ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                    : theme === 'light'
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
                 }`}
               >
                 Lightness
@@ -1715,7 +1847,9 @@ export default function ColorScaleEditor() {
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   !useLightnessNumbering
                     ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                    : theme === 'light'
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
                 }`}
               >
                 Sequential
@@ -1727,9 +1861,13 @@ export default function ColorScaleEditor() {
                       type="checkbox"
                       checked={useCustomIncrement}
                       onChange={(e) => setUseCustomIncrement(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                      className={`w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                        theme === 'light'
+                          ? 'border-gray-300 bg-white'
+                          : 'border-zinc-700 bg-black'
+                      }`}
                     />
-                    <span className="text-xs font-medium text-gray-400">Custom:</span>
+                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Custom:</span>
                   </label>
                   <input
                     type="number"
@@ -1738,9 +1876,11 @@ export default function ColorScaleEditor() {
                     disabled={!useCustomIncrement}
                     min="1"
                     max="1000"
-                    className={`w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600 ${
-                      !useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    } ${!useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </>
               )}
@@ -1773,7 +1913,11 @@ export default function ColorScaleEditor() {
           {/* Visual Controls Toggle */}
           <button
             onClick={() => setShowVisualControls(!showVisualControls)}
-            className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full justify-center py-2 border-t border-zinc-800 mt-4"
+            className={`flex items-center gap-2 text-xs transition-colors w-full justify-center py-2 mt-4 ${
+              theme === 'light'
+                ? 'text-gray-600 hover:text-gray-900 border-t border-gray-200'
+                : 'text-gray-400 hover:text-gray-200 border-t border-zinc-800'
+            }`}
           >
             <span className="font-medium">{showVisualControls ? 'Hide' : 'Show'} Visual Controls</span>
             <span
@@ -1798,43 +1942,43 @@ export default function ColorScaleEditor() {
               transition: `all ${showVisualControls ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${showVisualControls ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
             }}
           >
-            <div className="pt-6 border-t border-zinc-800 space-y-6">
+            <div className={`pt-6 space-y-6 ${theme === 'light' ? 'border-t border-gray-200' : 'border-t border-zinc-800'}`}>
               {/* L* Range Sliders */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                   Global L* Range (Visual Sliders)
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+                    <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (Light)</label>
                     <input
                       type="range"
                       min="5"
                       max="100"
                       value={globalLstarMax}
                       onChange={(e) => setGlobalLstarMax(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                     />
-                    <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMax}</div>
+                    <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {globalLstarMax}</div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                    <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (Dark)</label>
                     <input
                       type="range"
                       min="0"
                       max="95"
                       value={globalLstarMin}
                       onChange={(e) => setGlobalLstarMin(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                      className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                     />
-                    <div className="text-xs font-mono text-gray-400 mt-1">L* {globalLstarMin}</div>
+                    <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {globalLstarMin}</div>
                   </div>
                 </div>
               </div>
 
               {/* Bezier Curve Canvas */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                   Bezier Curve (Visual Editor)
                 </label>
                 <canvas
@@ -1843,7 +1987,11 @@ export default function ColorScaleEditor() {
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={handleCanvasMouseUp}
                   onMouseLeave={handleCanvasMouseUp}
-                  className="w-full h-80 bg-black border border-zinc-700 rounded-lg cursor-crosshair"
+                  className={`w-full h-80 rounded-lg cursor-crosshair ${
+                    theme === 'light'
+                      ? 'bg-white border-2 border-gray-300'
+                      : 'bg-black border border-zinc-700'
+                  }`}
                 />
               </div>
             </div>
@@ -1851,85 +1999,143 @@ export default function ColorScaleEditor() {
         </div>
 
         {colorScales.map((cs, scaleIndex) => {
-          let scale = generateColorScale(
-            cs.hex,
-            cs.useCustomBezier ? cs.cp1 : null,
-            cs.useCustomBezier ? cs.cp2 : null,
-            (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin,
-            (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax,
-            cs.saturationMin,
-            cs.saturationMax,
-            cs.hueShiftDark,
-            cs.hueShiftLight
-          );
-          const keyColorIndex = findKeyColorIndex(scale, cs.hex);
+          // Determine effective swatch count
+          const effectiveSwatchCount = getEffectiveSwatchCount(cs);
 
-          // If key color is locked, replace the closest swatch with exact hex
-          if (cs.lockKeyColor && keyColorIndex >= 0) {
-            scale[keyColorIndex] = {
-              ...scale[keyColorIndex],
-              hex: cs.hex
-            };
-          }
+          // Generate scale based on mode
+          let scale;
+          let keyColorIndex = -1;
 
-          // Remove white and black anchors and apply numbering
-          scale = (() => {
-            const sliced = scale.slice(1, -1);
-            const lstarValues = sliced.map(s => s.lstar);
-            const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
-            const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
-            const increment = useCustomIncrement ? customIncrement : 100;
-            const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
-            return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
-          })();
+          if (cs.isSingleColor) {
+            // Single color: just return the base color
+            const rgb = hexToRgb(cs.hex);
+            const lstar = rgbToLstar(rgb.r, rgb.g, rgb.b);
+            scale = [{
+              hex: cs.hex,
+              lstar: lstar.toFixed(1),
+              isCustom: false,
+              step: 500 // Default step for single color
+            }];
+          } else {
+            // Regular scale generation
+            const tempSteps = effectiveSwatchCount + 2; // Override steps for this scale
 
-          // Apply custom swatches AFTER renumbering
-          scale.forEach((swatch, i) => {
-            if (cs.customSwatches[swatch.step]) {
-              scale[i] = {
-                ...swatch,
-                hex: cs.customSwatches[swatch.step],
-                isCustom: true
+            // Temporarily create a modified generateColorScale function with custom steps
+            const values = [];
+            for (let i = 0; i < tempSteps; i++) {
+              let hex, lstar;
+
+              if (i === 0) {
+                hex = '#ffffff';
+                lstar = 100;
+              } else if (i === tempSteps - 1) {
+                hex = '#000000';
+                lstar = 0;
+              } else {
+                const t = i / (tempSteps - 1);
+                const easedT = cs.useCustomBezier
+                  ? getBezierYWithPoints(t, cs.cp1, cs.cp2)
+                  : getBezierY(t);
+                const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
+                const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
+                lstar = lstarMax - easedT * (lstarMax - lstarMin);
+                hex = getColorAtLightness(cs.hex, lstar, lstarMin, lstarMax, cs.saturationMin, cs.saturationMax, cs.hueShiftDark, cs.hueShiftLight);
+              }
+
+              const step = (i + 1) * 100;
+              values.push({ step, hex, lstar: lstar.toFixed(1) });
+            }
+            scale = values;
+
+            keyColorIndex = findKeyColorIndex(scale, cs.hex);
+
+            // If key color is locked, replace the closest swatch with exact hex
+            if (cs.lockKeyColor && keyColorIndex >= 0) {
+              scale[keyColorIndex] = {
+                ...scale[keyColorIndex],
+                hex: cs.hex
               };
             }
-          });
+
+            // Remove white and black anchors and apply numbering
+            scale = (() => {
+              const sliced = scale.slice(1, -1);
+              const lstarValues = sliced.map(s => s.lstar);
+              const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
+              const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
+              const increment = useCustomIncrement ? customIncrement : 100;
+              const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
+              return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
+            })();
+
+            // Apply custom swatches AFTER renumbering
+            scale.forEach((swatch, i) => {
+              if (cs.customSwatches[swatch.step]) {
+                scale[i] = {
+                  ...swatch,
+                  hex: cs.customSwatches[swatch.step],
+                  isCustom: true
+                };
+              }
+            });
+          }
 
           return (
-            <div key={cs.id} className="bg-zinc-900 border border-zinc-800 rounded-xl mb-3">
+            <div key={cs.id} className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
               {/* Always visible compact header */}
               <div
                 onClick={() => toggleScaleExpanded(cs.id)}
-                className="p-4 cursor-pointer hover:bg-zinc-800 transition-colors"
+                className={`p-4 cursor-pointer transition-colors ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-zinc-800'}`}
               >
                 <div className="flex items-center gap-3">
                   {/* Color dot and name */}
                   <div className="w-32 flex-shrink-0 flex items-center gap-2">
                     <div
-                      className="w-5 h-5 rounded border border-gray-600"
+                      className={`w-5 h-5 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-gray-600'}`}
                       style={{ background: cs.hex }}
                     />
-                    <span className="text-sm font-medium text-gray-200">{cs.name}</span>
+                    <span className={`text-sm font-medium ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{cs.name}</span>
+
+                    {/* Mode indicator badge */}
+                    {cs.isSingleColor ? (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${theme === 'light' ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                        single
+                      </span>
+                    ) : cs.swatchCountOverride !== null ? (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${theme === 'light' ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                        {cs.swatchCountOverride}×
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Swatches row */}
                   <div className="flex gap-1.5 flex-1 h-10">
-                    {scale.map((v, i) => (
+                    {cs.isSingleColor ? (
+                      // Single color: show larger single swatch
                       <div
-                        key={i}
-                        className="flex-1 rounded"
-                        style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex }}
+                        className="w-full h-full rounded"
+                        style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex }}
                       />
-                    ))}
+                    ) : (
+                      // Scale: show all swatches
+                      scale.map((v, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 rounded"
+                          style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex }}
+                        />
+                      ))
+                    )}
                   </div>
 
                   {/* Quick actions */}
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => toggleDesaturateScale(cs.id)}
-                      className="p-1.5 hover:bg-zinc-700 rounded transition-colors"
+                      className={`p-1.5 rounded transition-colors ${theme === 'light' ? 'hover:bg-gray-200' : 'hover:bg-zinc-700'}`}
                       title="Toggle luminance view"
                     >
-                      <span className="material-symbols-rounded text-[16px] text-gray-400">
+                      <span className={`material-symbols-rounded text-[16px] ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                         {desaturatedScales.has(cs.id) ? 'contrast' : 'palette'}
                       </span>
                     </button>
@@ -1941,7 +2147,7 @@ export default function ColorScaleEditor() {
                       <span className="material-symbols-rounded text-[16px]">delete</span>
                     </button>
                     <span
-                      className="material-symbols-rounded text-gray-500"
+                      className={`material-symbols-rounded ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
                       style={{
                         fontSize: '18px',
                         transform: cs.isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -1960,25 +2166,30 @@ export default function ColorScaleEditor() {
                 style={{
                   maxHeight: cs.isExpanded ? '2000px' : '0',
                   opacity: cs.isExpanded ? 1 : 0,
+                  marginTop: cs.isExpanded ? '24px' : '0',
                   transition: `all ${cs.isExpanded ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.isExpanded ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
                 }}
               >
                 <div className="px-6 pb-6" onClick={(e) => e.stopPropagation()}>
                   {/* Divider */}
-                  <div className="border-t border-zinc-800 mb-4"></div>
+                  <div className={`border-t mb-4 ${theme === 'light' ? 'border-gray-200' : 'border-zinc-800'}`}></div>
 
                   {/* Action buttons */}
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Controls</h3>
+                    <h3 className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>Controls</h3>
                     <div className="flex gap-2">
-                      <div className="flex gap-1 border border-zinc-700 rounded-md overflow-hidden">
+                      <div className={`flex gap-1 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}>
                         <button
                           onClick={() => moveColorScale(cs.id, 'up')}
                           disabled={scaleIndex === 0}
                           className={`px-2 py-1.5 text-xs font-medium transition-colors ${
                             scaleIndex === 0
-                              ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
-                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                              ? theme === 'light'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                              : theme === 'light'
+                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
                           }`}
                           title="Move up"
                         >
@@ -1989,8 +2200,12 @@ export default function ColorScaleEditor() {
                           disabled={scaleIndex === colorScales.length - 1}
                           className={`px-2 py-1.5 text-xs font-medium transition-colors ${
                             scaleIndex === colorScales.length - 1
-                              ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
-                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                              ? theme === 'light'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                              : theme === 'light'
+                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
                           }`}
                           title="Move down"
                         >
@@ -2001,8 +2216,10 @@ export default function ColorScaleEditor() {
                         onClick={() => toggleColorScaleSurface(cs.id)}
                         className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                           cs.lightSurface
-                            ? 'bg-white text-black hover:bg-gray-200'
-                            : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
+                            ? 'bg-white text-black hover:bg-gray-200 border border-gray-300'
+                            : theme === 'light'
+                              ? 'bg-gray-800 text-white hover:bg-gray-900'
+                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
                         }`}
                       >
                         {cs.lightSurface ? 'Light Surface' : 'Dark Surface'}
@@ -2010,10 +2227,50 @@ export default function ColorScaleEditor() {
                     </div>
                   </div>
 
+                  {/* Single Color Mode and Swatch Count Controls */}
+                  <div className="mb-4 flex gap-6 items-center">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cs.isSingleColor}
+                        onChange={() => toggleSingleColorMode(cs.id)}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <span className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Single Color Mode</span>
+                      <span className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>(hides scale controls)</span>
+                    </label>
+
+                    {!cs.isSingleColor && (
+                      <div className="flex items-center gap-2">
+                        <label className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Swatches:</label>
+                        <input
+                          type="number"
+                          value={cs.swatchCountOverride ?? numSwatches}
+                          onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
+                          min="1"
+                          max="20"
+                          className={`w-16 px-2 py-1 rounded border text-sm ${
+                            theme === 'light'
+                              ? 'bg-white border-gray-300 text-gray-900'
+                              : 'bg-black border-zinc-700 text-gray-200'
+                          }`}
+                        />
+                        {cs.swatchCountOverride !== null && (
+                          <button
+                            onClick={() => clearSwatchCountOverride(cs.id)}
+                            className={`text-xs hover:underline ${theme === 'light' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-300'}`}
+                          >
+                            Use Global ({numSwatches})
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Token Prefix and Key Color */}
                   <div className="mb-4 flex gap-4 items-start">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                         Token Prefix
                       </label>
                       <input
@@ -2021,14 +2278,18 @@ export default function ColorScaleEditor() {
                         value={cs.name}
                         onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
                         placeholder="color"
-                        className="w-48 px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-600"
+                        className={`w-48 px-3 py-2 rounded-md text-sm font-mono focus:outline-none ${
+                          theme === 'light'
+                            ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                            : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                        }`}
                       />
-                      <div className="text-xs text-gray-500 mt-1">
-                        Preview: {cs.name}-100, {cs.name}-200, ...
+                      <div className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                        Preview: {cs.isSingleColor ? cs.name : `${cs.name}-100, ${cs.name}-200, ...`}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                         Key Color
                       </label>
                       <div className="flex items-center gap-3">
@@ -2036,7 +2297,11 @@ export default function ColorScaleEditor() {
                           type="color"
                           value={cs.hex}
                           onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
-                          className="w-16 h-10 border border-zinc-700 rounded-md bg-black cursor-pointer"
+                          className={`w-16 h-10 rounded-md cursor-pointer ${
+                            theme === 'light'
+                              ? 'border border-gray-300 bg-white'
+                              : 'border border-zinc-700 bg-black'
+                          }`}
                         />
                         <input
                           type="text"
@@ -2047,7 +2312,11 @@ export default function ColorScaleEditor() {
                               updateColorScaleHex(cs.id, value);
                             }
                           }}
-                          className="w-20 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono text-gray-200 focus:outline-none focus:border-blue-500"
+                          className={`w-20 px-2 py-1 rounded-md text-xs font-mono focus:outline-none focus:border-blue-500 ${
+                            theme === 'light'
+                              ? 'bg-white border border-gray-300 text-gray-900'
+                              : 'bg-black border border-zinc-700 text-gray-200'
+                          }`}
                           placeholder="#000000"
                         />
                         <div className="relative group">
@@ -2056,11 +2325,19 @@ export default function ColorScaleEditor() {
                               type="checkbox"
                               checked={cs.lockKeyColor}
                               onChange={() => toggleLockKeyColor(cs.id)}
-                              className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                              className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                                theme === 'light'
+                                  ? 'border-gray-300 bg-white'
+                                  : 'border-zinc-700 bg-black'
+                              }`}
                             />
-                            <span className="text-xs font-medium text-gray-400">Lock</span>
+                            <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
                           </label>
-                          <div className="absolute left-0 top-full mt-1 px-2 py-1 bg-zinc-800 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 pointer-events-none z-10">
+                          <div className={`absolute left-0 top-full mt-1 px-2 py-1 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 pointer-events-none z-10 ${
+                            theme === 'light'
+                              ? 'bg-gray-800 text-white'
+                              : 'bg-zinc-800 text-white'
+                          }`}>
                             Useful when exact brand color is needed
                           </div>
                         </div>
@@ -2073,8 +2350,12 @@ export default function ColorScaleEditor() {
                               Harmonize
                             </button>
                             {harmonizingScale === cs.id && (
-                              <div className="absolute top-full left-0 mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 shadow-xl z-20 min-w-[200px]">
-                                <div className="text-xs font-medium text-gray-400 mb-2">Harmonize with:</div>
+                              <div className={`absolute top-full left-0 mt-2 rounded-lg p-3 shadow-xl z-20 min-w-[200px] ${
+                                theme === 'light'
+                                  ? 'bg-white border border-gray-300'
+                                  : 'bg-zinc-800 border border-zinc-700'
+                              }`}>
+                                <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
                                 <div className="space-y-1">
                                   {colorScales
                                     .filter(otherCs => otherCs.id !== cs.id)
@@ -2082,20 +2363,28 @@ export default function ColorScaleEditor() {
                                       <button
                                         key={otherCs.id}
                                         onClick={() => harmonizeWithColor(cs.id, otherCs.id)}
-                                        className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-700 rounded text-left transition-colors"
+                                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors ${
+                                          theme === 'light'
+                                            ? 'hover:bg-gray-100'
+                                            : 'hover:bg-zinc-700'
+                                        }`}
                                       >
                                         <div
-                                          className="w-4 h-4 rounded border border-zinc-600"
+                                          className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
                                           style={{ backgroundColor: otherCs.hex }}
                                         />
-                                        <span className="text-xs text-gray-200">{otherCs.name}</span>
+                                        <span className={`text-xs ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{otherCs.name}</span>
                                       </button>
                                     ))}
                                 </div>
-                                <div className="mt-2 pt-2 border-t border-zinc-700">
+                                <div className={`mt-2 pt-2 ${theme === 'light' ? 'border-t border-gray-200' : 'border-t border-zinc-700'}`}>
                                   <button
                                     onClick={() => setHarmonizingScale(null)}
-                                    className="w-full px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                                    className={`w-full px-2 py-1 text-xs transition-colors ${
+                                      theme === 'light'
+                                        ? 'text-gray-600 hover:text-gray-900'
+                                        : 'text-gray-400 hover:text-gray-200'
+                                    }`}
                                   >
                                     Cancel
                                   </button>
@@ -2108,6 +2397,9 @@ export default function ColorScaleEditor() {
                     </div>
                   </div>
 
+                  {/* Scale Controls - Hidden in single color mode */}
+                  {!cs.isSingleColor && (
+                    <>
                   {/* Advanced Settings Toggle */}
                   <div className="mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -2115,9 +2407,13 @@ export default function ColorScaleEditor() {
                         type="checkbox"
                         checked={cs.showAdvancedSettings}
                         onChange={() => toggleAdvancedSettings(cs.id)}
-                        className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                          theme === 'light'
+                            ? 'border-gray-300 bg-white'
+                            : 'border-zinc-700 bg-black'
+                        }`}
                       />
-                      <span className="text-xs font-medium text-gray-400">Show Advanced Settings</span>
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Show Advanced Settings</span>
                     </label>
                   </div>
 
@@ -2130,136 +2426,164 @@ export default function ColorScaleEditor() {
                         type="checkbox"
                         checked={cs.useCustomLstarRange}
                         onChange={() => toggleCustomLstarRange(cs.id)}
-                        className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                          theme === 'light'
+                            ? 'border-gray-300 bg-white'
+                            : 'border-zinc-700 bg-black'
+                        }`}
                       />
-                      <span className="text-xs font-medium text-gray-400">Use Custom L* Range</span>
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use Custom L* Range</span>
                     </label>
                   </div>
                   {cs.useCustomLstarRange && (
-                  <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <div className={`mb-4 rounded-lg p-3 ${
+                    theme === 'light'
+                      ? 'bg-gray-50 border border-gray-200'
+                      : 'bg-black border border-zinc-800'
+                  }`}>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                         Custom L* Range (Lightness Limits)
                       </label>
                       <button
                         onClick={() => resetLstarRange(cs.id)}
-                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                        className={`px-2 py-1 text-xs transition-colors ${
+                          theme === 'light'
+                            ? 'text-gray-600 hover:text-gray-900'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
                       >
                         Reset
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (Light)</label>
                         <input
                           type="range"
                           min="5"
                           max="100"
                           value={cs.lstarMax}
                           onChange={(e) => updateLstarRange(cs.id, 'max', e.target.value)}
-                          className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                         />
-                        <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMax}</div>
+                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMax}</div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (Dark)</label>
                         <input
                           type="range"
                           min="0"
                           max="95"
                           value={cs.lstarMin}
                           onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
-                          className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                         />
-                        <div className="text-xs font-mono text-gray-400 mt-1">L* {cs.lstarMin}</div>
+                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMin}</div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-2">
+                    <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
                       Override global L* range for this color scale (e.g., yellow works well at L* 20-90)
                     </div>
                   </div>
                   )}
-                  <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <div className={`mb-4 rounded-lg p-3 ${
+                    theme === 'light'
+                      ? 'bg-gray-50 border border-gray-200'
+                      : 'bg-black border border-zinc-800'
+                  }`}>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                         Saturation Range
                       </label>
                       <button
                         onClick={() => resetSaturationRange(cs.id)}
-                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                        className={`px-2 py-1 text-xs transition-colors ${
+                          theme === 'light'
+                            ? 'text-gray-600 hover:text-gray-900'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
                       >
                         Reset
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Max (Light)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (Light)</label>
                         <input
                           type="range"
                           min="0"
                           max="100"
                           value={cs.saturationMax}
                           onChange={(e) => updateSaturationRange(cs.id, 'max', e.target.value)}
-                          className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                         />
-                        <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMax}%</div>
+                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMax}%</div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Min (Dark)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (Dark)</label>
                         <input
                           type="range"
                           min="0"
                           max="100"
                           value={cs.saturationMin}
                           onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
-                          className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                         />
-                        <div className="text-xs font-mono text-gray-400 mt-1">{cs.saturationMin}%</div>
+                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMin}%</div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-2">
+                    <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
                       Percentage of base saturation to maintain (100% = full color, 0% = grayscale)
                     </div>
                   </div>
-                  <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                  <div className={`mb-4 rounded-lg p-3 ${
+                    theme === 'light'
+                      ? 'bg-gray-50 border border-gray-200'
+                      : 'bg-black border border-zinc-800'
+                  }`}>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                         Hue Shift
                       </label>
                       <button
                         onClick={() => resetHueShift(cs.id)}
-                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                        className={`px-2 py-1 text-xs transition-colors ${
+                          theme === 'light'
+                            ? 'text-gray-600 hover:text-gray-900'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
                       >
                         Reset
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Light End</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Light End</label>
                         <input
                           type="range"
                           min="-180"
                           max="180"
                           value={cs.hueShiftLight}
                           onChange={(e) => updateHueShift(cs.id, 'light', e.target.value)}
-                          className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                         />
-                        <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftLight}°</div>
+                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftLight}°</div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Dark End</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Dark End</label>
                         <input
                           type="range"
                           min="-180"
                           max="180"
                           value={cs.hueShiftDark}
                           onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
-                          className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                         />
-                        <div className="text-xs font-mono text-gray-400 mt-1">{cs.hueShiftDark}°</div>
+                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftDark}°</div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-2">
+                    <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
                       Rotate hue at extremes (e.g., shift yellow toward orange in darks)
                     </div>
                   </div>
@@ -2273,20 +2597,32 @@ export default function ColorScaleEditor() {
                         type="checkbox"
                         checked={cs.useCustomBezier}
                         onChange={() => toggleCustomBezier(cs.id)}
-                        className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer"
+                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                          theme === 'light'
+                            ? 'border-gray-300 bg-white'
+                            : 'border-zinc-700 bg-black'
+                        }`}
                       />
-                      <span className="text-xs font-medium text-gray-400">Use Custom Bezier Curve</span>
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use Custom Bezier Curve</span>
                     </label>
                   </div>
                   {cs.useCustomBezier && (
-                    <div className="mb-4 bg-black border border-zinc-800 rounded-lg p-3">
+                    <div className={`mb-4 rounded-lg p-3 ${
+                      theme === 'light'
+                        ? 'bg-gray-50 border border-gray-200'
+                        : 'bg-black border border-zinc-800'
+                    }`}>
                       <div className="flex justify-between items-center mb-3">
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                           Custom Bezier Curve
                         </label>
                         <button
                           onClick={() => resetCustomBezier(cs.id)}
-                          className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                          className={`px-2 py-1 text-xs transition-colors ${
+                            theme === 'light'
+                              ? 'text-gray-600 hover:text-gray-900'
+                              : 'text-gray-400 hover:text-gray-200'
+                          }`}
                         >
                           Reset to Global
                         </button>
@@ -2301,13 +2637,13 @@ export default function ColorScaleEditor() {
                             onMouseMove={(e) => handleMiniCanvasMouseMove(e, cs.id)}
                             onMouseUp={handleMiniCanvasMouseUp}
                             onMouseLeave={handleMiniCanvasMouseUp}
-                            className="rounded cursor-crosshair bg-zinc-900"
+                            className={`rounded cursor-crosshair ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-zinc-900'}`}
                           />
                         </div>
                         <div className="flex-1">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">P1</label>
+                              <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P1</label>
                               <div className="flex gap-2">
                                 <input
                                   type="number"
@@ -2316,7 +2652,11 @@ export default function ColorScaleEditor() {
                                   min="0"
                                   max="1"
                                   step="0.01"
-                                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-xs font-mono focus:outline-none focus:border-zinc-600"
+                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                    theme === 'light'
+                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                  }`}
                                 />
                                 <input
                                   type="number"
@@ -2325,12 +2665,16 @@ export default function ColorScaleEditor() {
                                   min="0"
                                   max="1"
                                   step="0.01"
-                                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-xs font-mono focus:outline-none focus:border-zinc-600"
+                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                    theme === 'light'
+                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                  }`}
                                 />
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">P2</label>
+                              <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P2</label>
                               <div className="flex gap-2">
                                 <input
                                   type="number"
@@ -2339,7 +2683,11 @@ export default function ColorScaleEditor() {
                                   min="0"
                                   max="1"
                                   step="0.01"
-                                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-xs font-mono focus:outline-none focus:border-zinc-600"
+                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                    theme === 'light'
+                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                  }`}
                                 />
                                 <input
                                   type="number"
@@ -2348,7 +2696,11 @@ export default function ColorScaleEditor() {
                                   min="0"
                                   max="1"
                                   step="0.01"
-                                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-xs font-mono focus:outline-none focus:border-zinc-600"
+                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                    theme === 'light'
+                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                  }`}
                                 />
                               </div>
                             </div>
@@ -2402,16 +2754,22 @@ export default function ColorScaleEditor() {
                       return (
                         <div
                           key={i}
-                          className={`bg-black rounded-md p-2 text-center relative transition-colors ${
+                          className={`rounded-md p-2 text-center relative transition-colors ${
+                            theme === 'light' ? 'bg-white' : 'bg-black'
+                          } ${
                             isLockedKeyColor
                               ? 'cursor-not-allowed'
-                              : 'cursor-pointer hover:bg-zinc-900'
+                              : theme === 'light'
+                                ? 'cursor-pointer hover:bg-gray-50'
+                                : 'cursor-pointer hover:bg-zinc-900'
                           } ${
                             isKeyColor
                               ? 'border-2 border-blue-500 shadow-lg shadow-blue-500/50'
                               : v.isCustom
                               ? 'border-2 border-amber-500'
-                              : 'border border-zinc-800'
+                              : theme === 'light'
+                                ? 'border border-gray-300'
+                                : 'border border-zinc-800'
                           }`}
                           onClick={() => !isLockedKeyColor && setEditingSwatch({ scaleId: cs.id, step: v.step })}
                           onMouseEnter={() => setHoveredSwatch({ scaleId: cs.id, index: i })}
@@ -2429,23 +2787,31 @@ export default function ColorScaleEditor() {
                           )}
                           {isEditing ? (
                             <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-                              <div className="text-xs text-gray-400 mb-1 font-mono">{cs.name}-{v.step}</div>
+                              <div className={`text-xs mb-1 font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.name}-{v.step}</div>
                               <input
                                 type="color"
                                 value={v.hex}
                                 onChange={(e) => updateCustomSwatch(cs.id, v.step, e.target.value)}
-                                className="w-full h-6 border border-zinc-700 rounded cursor-pointer"
+                                className={`w-full h-6 rounded cursor-pointer ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}
                               />
                               <input
                                 type="text"
                                 value={v.hex}
                                 onChange={(e) => updateCustomSwatch(cs.id, v.step, e.target.value)}
-                                className="w-full px-1 py-0.5 text-[10px] font-mono bg-zinc-900 border border-zinc-700 rounded focus:outline-none focus:border-zinc-600"
+                                className={`w-full px-1 py-0.5 text-[10px] font-mono rounded focus:outline-none ${
+                                  theme === 'light'
+                                    ? 'bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-500'
+                                    : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                }`}
                               />
                               <div className="flex gap-1">
                                 <button
                                   onClick={() => setEditingSwatch({ scaleId: null, step: null })}
-                                  className="flex-1 px-1 py-0.5 bg-zinc-700 hover:bg-zinc-600 rounded text-[9px] text-white"
+                                  className={`flex-1 px-1 py-0.5 rounded text-[9px] text-white ${
+                                    theme === 'light'
+                                      ? 'bg-gray-600 hover:bg-gray-700'
+                                      : 'bg-zinc-700 hover:bg-zinc-600'
+                                  }`}
                                 >
                                   Done
                                 </button>
@@ -2464,20 +2830,22 @@ export default function ColorScaleEditor() {
                             </div>
                           ) : (
                             <>
-                              <div className="text-xs text-gray-400 mb-1 font-mono flex items-center justify-center gap-1">
+                              <div className={`text-xs mb-1 font-mono flex items-center justify-center gap-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                                 {cs.name}-{v.step}
                                 {cs.lockKeyColor && isKeyColor && (
                                   <span className="material-symbols-rounded text-blue-400 text-[12px]">lock</span>
                                 )}
                               </div>
-                              <div className="text-xs font-mono text-gray-200 mb-0.5">{v.hex}</div>
-                              <div className="text-[10px] text-gray-500">L* {v.lstar}</div>
+                              <div className={`text-xs font-mono mb-0.5 ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{v.hex}</div>
+                              <div className={`text-[10px] ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>L* {v.lstar}</div>
                             </>
                           )}
                         </div>
                       );
                     })}
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2486,14 +2854,14 @@ export default function ColorScaleEditor() {
 
 
         {colorScales.length > 0 && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Add Color Families</h3>
-            <p className="text-sm text-gray-400 mb-4">
+          <div className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
+            <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Add Color Families</h3>
+            <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
             </p>
             <div className="flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-[300px]">
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                   Select Color Families to Generate
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -2519,30 +2887,42 @@ export default function ColorScaleEditor() {
                   ].map((family) => (
                     <label
                       key={family.value}
-                      className="flex items-center gap-2 px-3 py-2 bg-black border border-zinc-700 rounded-md cursor-pointer hover:bg-zinc-900 transition-colors"
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                        theme === 'light'
+                          ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                          : 'bg-black border border-zinc-700 hover:bg-zinc-900'
+                      }`}
                     >
                       <input
                         type="checkbox"
                         value={family.value}
-                        className="w-4 h-4 rounded border-zinc-700 bg-black text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer harmonious-color-checkbox"
+                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer harmonious-color-checkbox ${
+                          theme === 'light'
+                            ? 'border-gray-300 bg-white'
+                            : 'border-zinc-700 bg-black'
+                        }`}
                       />
                       <div
-                        className="w-4 h-4 rounded border border-zinc-600"
+                        className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
                         style={{ backgroundColor: family.color }}
                       />
-                      <span className="text-sm text-gray-200">{family.name}</span>
+                      <span className={`text-sm ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{family.name}</span>
                     </label>
                   ))}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <label className={`block text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                   Base Color
                 </label>
                 <select
                   value={baseColorScaleId || ''}
                   onChange={(e) => setBaseColorScaleId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="px-3 py-2 bg-black border border-zinc-700 rounded-md text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className={`px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                    theme === 'light'
+                      ? 'bg-white border border-gray-300 text-gray-900'
+                      : 'bg-black border border-zinc-700 text-gray-200'
+                  }`}
                 >
                   {colorScales.map((cs) => (
                     <option key={cs.id} value={cs.id}>
@@ -2563,22 +2943,22 @@ export default function ColorScaleEditor() {
 
             {/* Loading State */}
             {isGenerating && (
-              <div className="mt-4 p-8 bg-black border border-zinc-700 rounded-lg">
+              <div className={`mt-4 p-8 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
                 <div className="flex flex-col items-center gap-4">
                   <div className="relative w-12 h-12">
-                    <div className="absolute inset-0 border-4 border-zinc-700 rounded-full"></div>
+                    <div className={`absolute inset-0 border-4 rounded-full ${theme === 'light' ? 'border-gray-300' : 'border-zinc-700'}`}></div>
                     <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
                   </div>
-                  <div className="text-sm text-gray-400">Generating harmonious colors...</div>
+                  <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Generating harmonious colors...</div>
                 </div>
               </div>
             )}
 
             {/* Preview Area */}
             {!isGenerating && previewColorsByFamily && (
-              <div className="mt-4 p-4 bg-black border border-zinc-700 rounded-lg">
+              <div className={`mt-4 p-4 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm font-medium text-gray-300">
+                  <div className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
                     Preview Options - Select one or more from each family
                     {selectedPreviews.size > 0 && (
                       <span className="ml-2 text-purple-400">({selectedPreviews.size} selected)</span>
@@ -2587,7 +2967,11 @@ export default function ColorScaleEditor() {
                   <div className="flex gap-2">
                     <button
                       onClick={generateHarmoniousColors}
-                      className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-md text-xs font-medium text-white transition-colors"
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
+                        theme === 'light'
+                          ? 'bg-gray-600 hover:bg-gray-700'
+                          : 'bg-zinc-700 hover:bg-zinc-600'
+                      }`}
                     >
                       Regenerate All
                     </button>
@@ -2596,7 +2980,9 @@ export default function ColorScaleEditor() {
                       disabled={selectedPreviews.size === 0}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
                         selectedPreviews.size === 0
-                          ? 'bg-zinc-700 text-gray-500 cursor-not-allowed'
+                          ? theme === 'light'
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-zinc-700 text-gray-500 cursor-not-allowed'
                           : 'bg-green-600 hover:bg-green-700'
                       }`}
                     >
@@ -2604,7 +2990,11 @@ export default function ColorScaleEditor() {
                     </button>
                     <button
                       onClick={cancelPreview}
-                      className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-md text-xs font-medium text-white transition-colors"
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
+                        theme === 'light'
+                          ? 'bg-gray-600 hover:bg-gray-700'
+                          : 'bg-zinc-700 hover:bg-zinc-600'
+                      }`}
                     >
                       Cancel
                     </button>
@@ -2613,7 +3003,7 @@ export default function ColorScaleEditor() {
                 <div className="flex flex-col gap-6">
                   {Object.entries(previewColorsByFamily).map(([family, options]) => (
                     <div key={family} className="flex flex-col gap-2">
-                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider capitalize">
+                      <div className={`text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                         {family}
                       </div>
                       <div className="flex gap-3">
@@ -2627,15 +3017,19 @@ export default function ColorScaleEditor() {
                               onClick={() => togglePreviewSelection(family, optionIndex)}
                               className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
                                 isSelected
-                                  ? 'bg-zinc-800 border-2 border-purple-500'
-                                  : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
+                                  ? theme === 'light'
+                                    ? 'bg-purple-50 border-2 border-purple-500'
+                                    : 'bg-zinc-800 border-2 border-purple-500'
+                                  : theme === 'light'
+                                    ? 'bg-gray-50 border-2 border-gray-300 hover:border-gray-400'
+                                    : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
                               }`}
                             >
                               <div
-                                className="w-16 h-16 rounded border border-zinc-600"
+                                className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
                                 style={{ backgroundColor: hex }}
                               />
-                              <div className="text-xs font-mono text-gray-400">{hex}</div>
+                              <div className={`text-xs font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{hex}</div>
                             </div>
                           );
                         })}
