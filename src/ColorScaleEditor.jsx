@@ -1174,6 +1174,18 @@ export default function ColorScaleEditor() {
     });
   };
 
+  const toggleAllDesaturate = () => {
+    setDesaturatedScales(prev => {
+      // If all scales are already desaturated, clear the set
+      // Otherwise, add all scale IDs to the set
+      if (prev.size === colorScales.length) {
+        return new Set();
+      } else {
+        return new Set(colorScales.map(cs => cs.id));
+      }
+    });
+  };
+
   const toggleCustomBezier = (id) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, useCustomBezier: !cs.useCustomBezier } : cs
@@ -1902,6 +1914,22 @@ export default function ColorScaleEditor() {
                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>share</span>
                 Share Palette
               </button>
+              <button
+                onClick={toggleAllDesaturate}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
+                  desaturatedScales.size === colorScales.length
+                    ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                    : theme === 'light'
+                      ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                      : 'bg-zinc-700 hover:bg-zinc-600 text-gray-200'
+                }`}
+                title="Toggle luminance view for all scales"
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>
+                  {desaturatedScales.size === colorScales.length ? 'palette' : 'contrast'}
+                </span>
+                {desaturatedScales.size === colorScales.length ? 'Show Colors' : 'Show Luminance'}
+              </button>
               {showCopiedMessage && (
                 <span className="text-xs text-green-500 font-medium animate-pulse">
                   Copied!
@@ -2333,11 +2361,21 @@ export default function ColorScaleEditor() {
                         />
                         <input
                           type="text"
-                          value={cs.hex}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                          defaultValue={cs.hex}
+                          key={cs.hex} // Force re-render when hex changes externally
+                          onBlur={(e) => {
+                            const value = e.target.value.trim();
+                            // Validate complete hex code (3 or 6 digits)
+                            if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
                               updateColorScaleHex(cs.id, value);
+                            } else {
+                              // Reset to original value if invalid
+                              e.target.value = cs.hex;
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.target.blur(); // Trigger onBlur validation
                             }
                           }}
                           className={`w-20 px-2 py-1 rounded-md text-xs font-mono focus:outline-none focus:border-blue-500 ${
@@ -2434,8 +2472,15 @@ export default function ColorScaleEditor() {
                   </div>
 
                   {/* Scale Controls - Hidden in single color mode */}
-                  {!cs.isSingleColor && (
-                    <>
+                  <div
+                    className="overflow-hidden"
+                    style={{
+                      maxHeight: !cs.isSingleColor ? '5000px' : '0',
+                      opacity: !cs.isSingleColor ? 1 : 0,
+                      marginTop: !cs.isSingleColor ? '24px' : '0',
+                      transition: `all ${!cs.isSingleColor ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!cs.isSingleColor ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                    }}
+                  >
                   {/* Advanced Settings Toggle */}
                   <div className="mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -2884,8 +2929,7 @@ export default function ColorScaleEditor() {
                       );
                     })}
                   </div>
-                    </>
-                  )}
+                  </div>
                 </div>
               </div>
             </motion.div>
