@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, ease, motionPresets } from './motionTokens';
+import { motionPresets } from './motionTokens';
+import { SegmentedControl, Theme } from '@radix-ui/themes';
 
 export default function ColorScaleEditor() {
   const canvasRef = useRef(null);
@@ -1632,7 +1633,8 @@ export default function ColorScaleEditor() {
   };
 
   return (
-    <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-black text-gray-200'}`}>
+    <Theme appearance={theme}>
+      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-black text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
         <h1 className={`text-7xl font-light mb-2 font-space-grotesk ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Primitive Color Builder</h1>
         <p className={`mb-8 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>Interactive bezier curve editor for perceptually uniform color scales</p>
@@ -1830,30 +1832,19 @@ export default function ColorScaleEditor() {
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                 Tokens:
               </label>
-              <button
-                onClick={() => setUseLightnessNumbering(true)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  useLightnessNumbering
-                    ? 'bg-blue-600 text-white'
-                    : theme === 'light'
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-                }`}
+              <SegmentedControl.Root
+                value={useLightnessNumbering ? 'lightness' : 'sequential'}
+                onValueChange={(newValue) => {
+                  setUseLightnessNumbering(newValue === 'lightness');
+                }}
               >
-                Lightness
-              </button>
-              <button
-                onClick={() => setUseLightnessNumbering(false)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  !useLightnessNumbering
-                    ? 'bg-blue-600 text-white'
-                    : theme === 'light'
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-                }`}
-              >
-                Sequential
-              </button>
+                <SegmentedControl.Item value="lightness">
+                  Lightness
+                </SegmentedControl.Item>
+                <SegmentedControl.Item value="sequential">
+                  Sequential
+                </SegmentedControl.Item>
+              </SegmentedControl.Root>
               {!useLightnessNumbering && (
                 <>
                   <label className="flex items-center gap-2 cursor-pointer ml-2">
@@ -3052,5 +3043,6 @@ export default function ColorScaleEditor() {
         </div>
       </div>
     </div>
+    </Theme>
   );
 }
