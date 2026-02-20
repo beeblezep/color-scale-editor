@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motionPresets } from './motionTokens';
-import { SegmentedControl, Theme } from '@radix-ui/themes';
+import { SegmentedControl, Theme, Switch } from '@radix-ui/themes';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ColorScaleEditor() {
   const canvasRef = useRef(null);
@@ -1636,7 +1637,7 @@ export default function ColorScaleEditor() {
     <Theme appearance={theme}>
       <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-black text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
-        <h1 className={`text-7xl font-light mb-2 font-space-grotesk ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Primitive Color Builder</h1>
+        <h1 className={`text-7xl font-semiBold mb-2 font-fraunces ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Primitive Color Builder</h1>
         <p className={`mb-8 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>Interactive bezier curve editor for perceptually uniform color scales</p>
 
         {/* Global Settings - Compact Input Controls */}
@@ -1830,7 +1831,7 @@ export default function ColorScaleEditor() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                Tokens:
+                Token Naming:
               </label>
               <SegmentedControl.Root
                 value={useLightnessNumbering ? 'lightness' : 'sequential'}
@@ -1845,8 +1846,16 @@ export default function ColorScaleEditor() {
                   Sequential
                 </SegmentedControl.Item>
               </SegmentedControl.Root>
-              {!useLightnessNumbering && (
-                <>
+              <div
+                className="overflow-hidden"
+                style={{
+                  maxHeight: !useLightnessNumbering ? '200px' : '0',
+                  opacity: !useLightnessNumbering ? 1 : 0,
+                  marginTop: !useLightnessNumbering ? '0' : '0',
+                  transition: `all ${!useLightnessNumbering ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!useLightnessNumbering ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                }}
+              >
+                <div className="flex items-center gap-2">
                   <label className="flex items-center gap-2 cursor-pointer ml-2">
                     <input
                       type="checkbox"
@@ -1873,8 +1882,8 @@ export default function ColorScaleEditor() {
                         : 'bg-black border border-zinc-700 focus:border-zinc-600'
                     } ${!useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
-                </>
-              )}
+                </div>
+              </div>
             </div>
 
             {/* Export & Share Buttons */}
@@ -1989,6 +1998,7 @@ export default function ColorScaleEditor() {
           </div>
         </div>
 
+        <AnimatePresence mode="popLayout">
         {colorScales.map((cs, scaleIndex) => {
           // Determine effective swatch count
           const effectiveSwatchCount = getEffectiveSwatchCount(cs);
@@ -2072,7 +2082,27 @@ export default function ColorScaleEditor() {
           }
 
           return (
-            <div key={cs.id} className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
+            <motion.div
+              key={cs.id}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                transition: {
+                  duration: motionPresets.accordionEnter.duration / 1000,
+                  ease: [0, 0, 0.2, 1] // decelerate
+                }
+              }}
+              exit={{
+                opacity: 0,
+                y: -20,
+                transition: {
+                  duration: motionPresets.accordionExit.duration / 1000,
+                  ease: [0.4, 0, 1, 1] // accelerate
+                }
+              }}
+              className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+            >
               {/* Always visible compact header */}
               <div
                 onClick={() => toggleScaleExpanded(cs.id)}
@@ -2231,7 +2261,14 @@ export default function ColorScaleEditor() {
                       <span className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>(hides scale controls)</span>
                     </label>
 
-                    {!cs.isSingleColor && (
+                    <div
+                      className="overflow-hidden"
+                      style={{
+                        maxHeight: !cs.isSingleColor ? '80px' : '0',
+                        opacity: !cs.isSingleColor ? 1 : 0,
+                        transition: `all ${!cs.isSingleColor ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!cs.isSingleColor ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                      }}
+                    >
                       <div className="flex items-center gap-2">
                         <label className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Swatches:</label>
                         <input
@@ -2255,7 +2292,7 @@ export default function ColorScaleEditor() {
                           </button>
                         )}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Token Prefix and Key Color */}
@@ -2340,8 +2377,16 @@ export default function ColorScaleEditor() {
                             >
                               Harmonize
                             </button>
-                            {harmonizingScale === cs.id && (
-                              <div className={`absolute top-full left-0 mt-2 rounded-lg p-3 shadow-xl z-20 min-w-[200px] ${
+                            <div
+                              className="overflow-hidden absolute top-full left-0"
+                              style={{
+                                maxHeight: harmonizingScale === cs.id ? '400px' : '0',
+                                opacity: harmonizingScale === cs.id ? 1 : 0,
+                                marginTop: harmonizingScale === cs.id ? '8px' : '0',
+                                transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                              }}
+                            >
+                              <div className={`rounded-lg p-3 shadow-xl z-20 min-w-[200px] ${
                                 theme === 'light'
                                   ? 'bg-white border border-gray-300'
                                   : 'bg-zinc-800 border border-zinc-700'
@@ -2381,7 +2426,7 @@ export default function ColorScaleEditor() {
                                   </button>
                                 </div>
                               </div>
-                            )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2394,39 +2439,42 @@ export default function ColorScaleEditor() {
                   {/* Advanced Settings Toggle */}
                   <div className="mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={cs.showAdvancedSettings}
-                        onChange={() => toggleAdvancedSettings(cs.id)}
-                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                          theme === 'light'
-                            ? 'border-gray-300 bg-white'
-                            : 'border-zinc-700 bg-black'
-                        }`}
+                        onCheckedChange={() => toggleAdvancedSettings(cs.id)}
                       />
                       <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Show Advanced Settings</span>
                     </label>
                   </div>
 
                   {/* Advanced Settings */}
-                  {cs.showAdvancedSettings && (
-                    <>
+                  <div
+                    className="overflow-hidden"
+                    style={{
+                      maxHeight: cs.showAdvancedSettings ? '3000px' : '0',
+                      opacity: cs.showAdvancedSettings ? 1 : 0,
+                      marginTop: cs.showAdvancedSettings ? '24px' : '0',
+                      transition: `all ${cs.showAdvancedSettings ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.showAdvancedSettings ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                    }}
+                  >
                   <div className="mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={cs.useCustomLstarRange}
-                        onChange={() => toggleCustomLstarRange(cs.id)}
-                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                          theme === 'light'
-                            ? 'border-gray-300 bg-white'
-                            : 'border-zinc-700 bg-black'
-                        }`}
+                        onCheckedChange={() => toggleCustomLstarRange(cs.id)}
                       />
                       <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use Custom L* Range</span>
                     </label>
                   </div>
-                  {cs.useCustomLstarRange && (
+                  <div
+                    className="overflow-hidden"
+                    style={{
+                      maxHeight: cs.useCustomLstarRange ? '500px' : '0',
+                      opacity: cs.useCustomLstarRange ? 1 : 0,
+                      marginTop: cs.useCustomLstarRange ? '24px' : '0',
+                      transition: `all ${cs.useCustomLstarRange ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.useCustomLstarRange ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                    }}
+                  >
                   <div className={`mb-4 rounded-lg p-3 ${
                     theme === 'light'
                       ? 'bg-gray-50 border border-gray-200'
@@ -2477,7 +2525,7 @@ export default function ColorScaleEditor() {
                       Override global L* range for this color scale (e.g., yellow works well at L* 20-90)
                     </div>
                   </div>
-                  )}
+                  </div>
                   <div className={`mb-4 rounded-lg p-3 ${
                     theme === 'light'
                       ? 'bg-gray-50 border border-gray-200'
@@ -2578,26 +2626,27 @@ export default function ColorScaleEditor() {
                       Rotate hue at extremes (e.g., shift yellow toward orange in darks)
                     </div>
                   </div>
-                    </>
-                  )}
+                  </div>
 
                   {/* Custom Bezier */}
                   <div className="mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={cs.useCustomBezier}
-                        onChange={() => toggleCustomBezier(cs.id)}
-                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                          theme === 'light'
-                            ? 'border-gray-300 bg-white'
-                            : 'border-zinc-700 bg-black'
-                        }`}
+                        onCheckedChange={() => toggleCustomBezier(cs.id)}
                       />
                       <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use Custom Bezier Curve</span>
                     </label>
                   </div>
-                  {cs.useCustomBezier && (
+                  <div
+                    className="overflow-hidden"
+                    style={{
+                      maxHeight: cs.useCustomBezier ? '1000px' : '0',
+                      opacity: cs.useCustomBezier ? 1 : 0,
+                      marginTop: cs.useCustomBezier ? '24px' : '0',
+                      transition: `all ${cs.useCustomBezier ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.useCustomBezier ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                    }}
+                  >
                     <div className={`mb-4 rounded-lg p-3 ${
                       theme === 'light'
                         ? 'bg-gray-50 border border-gray-200'
@@ -2699,7 +2748,7 @@ export default function ColorScaleEditor() {
                         </div>
                       </div>
                     </div>
-                  )}
+                  </div>
 
                   {/* Swatch Preview Bar */}
                   <div className="relative mb-4">
@@ -2839,13 +2888,23 @@ export default function ColorScaleEditor() {
                   )}
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
 
 
         {colorScales.length > 0 && (
-          <div className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
+          <motion.div
+            layout
+            transition={{
+              layout: {
+                duration: motionPresets.accordionEnter.duration / 1000,
+                ease: [0, 0, 0.2, 1]
+              }
+            }}
+            className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+          >
             <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Add Color Families</h3>
             <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
@@ -2933,8 +2992,16 @@ export default function ColorScaleEditor() {
             </div>
 
             {/* Loading State */}
-            {isGenerating && (
-              <div className={`mt-4 p-8 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
+            <div
+              className="overflow-hidden"
+              style={{
+                maxHeight: isGenerating ? '300px' : '0',
+                opacity: isGenerating ? 1 : 0,
+                marginTop: isGenerating ? '16px' : '0',
+                transition: `all ${isGenerating ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${isGenerating ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+              }}
+            >
+              <div className={`p-8 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
                 <div className="flex flex-col items-center gap-4">
                   <div className="relative w-12 h-12">
                     <div className={`absolute inset-0 border-4 rounded-full ${theme === 'light' ? 'border-gray-300' : 'border-zinc-700'}`}></div>
@@ -2943,12 +3010,21 @@ export default function ColorScaleEditor() {
                   <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Generating harmonious colors...</div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Preview Area */}
-            {!isGenerating && previewColorsByFamily && (
-              <div className={`mt-4 p-4 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
-                <div className="flex items-center justify-between mb-4">
+            <div
+              className="overflow-hidden"
+              style={{
+                maxHeight: !isGenerating && previewColorsByFamily ? '2000px' : '0',
+                opacity: !isGenerating && previewColorsByFamily ? 1 : 0,
+                marginTop: !isGenerating && previewColorsByFamily ? '16px' : '0',
+                transition: `all ${!isGenerating && previewColorsByFamily ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!isGenerating && previewColorsByFamily ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+              }}
+            >
+              {!isGenerating && previewColorsByFamily && (
+                <div className={`p-4 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
+                  <div className="flex items-center justify-between mb-4">
                   <div className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
                     Preview Options - Select one or more from each family
                     {selectedPreviews.size > 0 && (
@@ -3029,18 +3105,28 @@ export default function ColorScaleEditor() {
                   ))}
                 </div>
               </div>
-            )}
-          </div>
+              )}
+            </div>
+          </motion.div>
         )}
 
-        <div className="flex gap-3 items-center">
+        <motion.div
+          layout
+          transition={{
+            layout: {
+              duration: motionPresets.accordionEnter.duration / 1000,
+              ease: [0, 0, 0.2, 1]
+            }
+          }}
+          className="flex gap-3 items-center"
+        >
           <button
             onClick={addColorScale}
             className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
           >
             + Add Color Scale
           </button>
-        </div>
+        </motion.div>
       </div>
     </div>
     </Theme>
