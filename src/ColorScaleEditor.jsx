@@ -44,10 +44,11 @@ export default function ColorScaleEditor() {
   const [isComparisonDesaturated, setIsComparisonDesaturated] = useState(false); // Whether all scales in comparison section are in desaturate/luminance mode
   const [shareUrl, setShareUrl] = useState('');
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
-  const [useLightnessNumbering, setUseLightnessNumbering] = useState(false); // Toggle between sequential (100, 200...) and lightness-based (98, 90, 80...) numbering
+  const [useLightnessNumbering, setUseLightnessNumbering] = useState(true); // Toggle between sequential (100, 200...) and lightness-based (98, 90, 80...) numbering
   const [customIncrement, setCustomIncrement] = useState(10); // Custom increment for sequential numbering (e.g., 10 for 10, 20, 30...)
   const [useCustomIncrement, setUseCustomIncrement] = useState(false); // Whether to use custom increment instead of 100
   const [showVisualControls, setShowVisualControls] = useState(false); // Toggle to show/hide visual sliders and bezier canvas
+  const [dragState, setDragState] = useState(null); // For drag-to-change number inputs
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -615,6 +616,43 @@ export default function ColorScaleEditor() {
     setCp2({ x: 0.50, y: 0.60 });
   };
 
+  // Drag-to-change number input handlers
+  const handleNumberDragStart = (e, value, setValue, min, max, step = 1) => {
+    e.preventDefault();
+    setDragState({
+      startX: e.clientX,
+      startValue: value,
+      setValue,
+      min,
+      max,
+      step
+    });
+    document.body.style.cursor = 'ew-resize';
+  };
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handleMouseMove = (e) => {
+      const delta = (e.clientX - dragState.startX) * dragState.step;
+      const newValue = Math.min(dragState.max, Math.max(dragState.min, dragState.startValue + delta));
+      dragState.setValue(dragState.step < 1 ? parseFloat(newValue.toFixed(2)) : Math.round(newValue));
+    };
+
+    const handleMouseUp = () => {
+      setDragState(null);
+      document.body.style.cursor = 'default';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState]);
+
   const harmonizeWithColor = (targetScaleId, baseScaleId) => {
     const baseScale = colorScales.find(cs => cs.id === baseScaleId);
     const targetScale = colorScales.find(cs => cs.id === targetScaleId);
@@ -798,9 +836,14 @@ export default function ColorScaleEditor() {
       const optionIndex = parseInt(selectionKey.substring(lastDashIndex + 1));
       const hex = previewColorsByFamily[family][optionIndex];
 
+      // Check if a scale with this family name already exists
+      const existingNames = [...colorScales, ...newScales].map(cs => cs.name);
+      const nameExists = existingNames.some(name => name === family || name.startsWith(`${family}-`));
+      const scaleName = nameExists ? `${family}-${nextColorId + scaleIndex + 1}` : family;
+
       const newScale = {
         id: nextColorId + scaleIndex,
-        name: `${family}-${nextColorId + scaleIndex + 1}`,
+        name: scaleName,
         hex: hex,
         lightSurface: false,
         useCustomBezier: false,
@@ -937,11 +980,72 @@ export default function ColorScaleEditor() {
     }
   }, []); // Only run once on mount
 
+  // Helper function to find nearest HTML color name
+  const getNearestColorName = (hex) => {
+    const colorNames = {
+      red: '#ef4444',
+      rose: '#f43f5e',
+      pink: '#ec4899',
+      fuchsia: '#d946ef',
+      purple: '#a855f7',
+      violet: '#8b5cf6',
+      indigo: '#6366f1',
+      blue: '#3b82f6',
+      sky: '#0ea5e9',
+      cyan: '#06b6d4',
+      teal: '#14b8a6',
+      emerald: '#10b981',
+      green: '#22c55e',
+      lime: '#84cc16',
+      yellow: '#eab308',
+      amber: '#f59e0b',
+      orange: '#f97316',
+      'warm-gray': '#a8a29e',
+      'cool-gray': '#9ca3af',
+      gray: '#6b7280',
+      slate: '#64748b',
+      zinc: '#71717a',
+      neutral: '#737373',
+      stone: '#78716c'
+    };
+
+    // Convert hex to RGB
+    const targetRgb = hexToRgb(hex);
+
+    let nearestName = 'color';
+    let minDistance = Infinity;
+
+    Object.entries(colorNames).forEach(([name, colorHex]) => {
+      const rgb = hexToRgb(colorHex);
+      // Calculate Euclidean distance in RGB space
+      const distance = Math.sqrt(
+        Math.pow(rgb.r - targetRgb.r, 2) +
+        Math.pow(rgb.g - targetRgb.g, 2) +
+        Math.pow(rgb.b - targetRgb.b, 2)
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestName = name;
+      }
+    });
+
+    return nearestName;
+  };
+
   const addColorScale = () => {
+    const hex = '#3b82f6';
+    const baseName = getNearestColorName(hex);
+
+    // Check if a scale with this name already exists
+    const existingNames = colorScales.map(cs => cs.name);
+    const nameExists = existingNames.some(name => name === baseName || name.startsWith(`${baseName}-`));
+    const scaleName = nameExists ? `${baseName}-${nextColorId + 1}` : baseName;
+
     const newScale = {
       id: nextColorId,
-      name: `color-${nextColorId + 1}`,
-      hex: '#3b82f6',
+      name: scaleName,
+      hex: hex,
       lightSurface: false,
       useCustomBezier: false,
       useCustomLstarRange: false,
@@ -978,9 +1082,19 @@ export default function ColorScaleEditor() {
   };
 
   const updateColorScaleHex = (id, hex) => {
-    setColorScales(colorScales.map(cs =>
-      cs.id === id ? { ...cs, hex } : cs
-    ));
+    setColorScales(colorScales.map(cs => {
+      if (cs.id !== id) return cs;
+
+      // Get the nearest color name for the new hex
+      const baseName = getNearestColorName(hex);
+
+      // Check if a scale with this name already exists (excluding current scale)
+      const existingNames = colorScales.filter(s => s.id !== id).map(s => s.name);
+      const nameExists = existingNames.some(name => name === baseName || name.startsWith(`${baseName}-`));
+      const newName = nameExists ? `${baseName}-${id + 1}` : baseName;
+
+      return { ...cs, hex, name: newName };
+    }));
   };
 
   const updateColorScaleName = (id, name) => {
@@ -1444,7 +1558,11 @@ export default function ColorScaleEditor() {
           <div className="flex flex-wrap items-center gap-6 mb-4">
             {/* Swatches Count */}
             <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <label
+                className="text-xs font-medium text-gray-500 uppercase tracking-wider cursor-ew-resize select-none"
+                onMouseDown={(e) => handleNumberDragStart(e, numSwatches, setNumSwatches, 4, 20, 1)}
+                title="Drag to change"
+              >
                 Swatches:
               </label>
               <input
@@ -1459,7 +1577,13 @@ export default function ColorScaleEditor() {
 
             {/* Bezier Control Points - Compact */}
             <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500">P1:</label>
+              <label
+                className="text-xs font-medium text-gray-500 cursor-ew-resize select-none"
+                onMouseDown={(e) => handleNumberDragStart(e, cp1.x, (v) => setCp1({ ...cp1, x: v }), 0, 1, 0.01)}
+                title="Drag to change X"
+              >
+                P1:
+              </label>
               <input
                 type="number"
                 value={cp1.x}
@@ -1467,7 +1591,7 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
               <input
                 type="number"
@@ -1476,12 +1600,18 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500">P2:</label>
+              <label
+                className="text-xs font-medium text-gray-500 cursor-ew-resize select-none"
+                onMouseDown={(e) => handleNumberDragStart(e, cp2.x, (v) => setCp2({ ...cp2, x: v }), 0, 1, 0.01)}
+                title="Drag to change X"
+              >
+                P2:
+              </label>
               <input
                 type="number"
                 value={cp2.x}
@@ -1489,7 +1619,7 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
               <input
                 type="number"
@@ -1498,7 +1628,7 @@ export default function ColorScaleEditor() {
                 min="0"
                 max="1"
                 step="0.01"
-                className="w-14 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
+                className="w-16 px-2 py-1 bg-black border border-zinc-700 rounded-md text-xs font-mono focus:outline-none focus:border-zinc-600"
               />
               <button
                 onClick={resetBezierPoints}
@@ -1511,7 +1641,13 @@ export default function ColorScaleEditor() {
 
             {/* L* Range - Compact Number Inputs */}
             <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500">L* Range:</label>
+              <label
+                className="text-xs font-medium text-gray-500 cursor-ew-resize select-none"
+                onMouseDown={(e) => handleNumberDragStart(e, globalLstarMin, setGlobalLstarMin, 0, 95, 1)}
+                title="Drag to change Min"
+              >
+                L* Range:
+              </label>
               <input
                 type="number"
                 value={globalLstarMin}
@@ -1551,16 +1687,6 @@ export default function ColorScaleEditor() {
                 Tokens:
               </label>
               <button
-                onClick={() => setUseLightnessNumbering(false)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  !useLightnessNumbering
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-                }`}
-              >
-                Sequential
-              </button>
-              <button
                 onClick={() => setUseLightnessNumbering(true)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   useLightnessNumbering
@@ -1569,6 +1695,16 @@ export default function ColorScaleEditor() {
                 }`}
               >
                 Lightness
+              </button>
+              <button
+                onClick={() => setUseLightnessNumbering(false)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  !useLightnessNumbering
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                }`}
+              >
+                Sequential
               </button>
               {!useLightnessNumbering && (
                 <>
@@ -1596,14 +1732,28 @@ export default function ColorScaleEditor() {
               )}
             </div>
 
-            {/* Export Button */}
-            <button
-              onClick={exportToFigmaTokens}
-              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>download</span>
-              Export Tokens
-            </button>
+            {/* Export & Share Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={exportToFigmaTokens}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>download</span>
+                Export Tokens
+              </button>
+              <button
+                onClick={generateShareUrl}
+                className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>share</span>
+                Share Palette
+              </button>
+              {showCopiedMessage && (
+                <span className="text-xs text-green-500 font-medium animate-pulse">
+                  Copied!
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Visual Controls Toggle */}
@@ -2531,17 +2681,6 @@ export default function ColorScaleEditor() {
           >
             + Add Color Scale
           </button>
-          <button
-            onClick={generateShareUrl}
-            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
-          >
-            Share Palette
-          </button>
-          {showCopiedMessage && (
-            <span className="text-sm text-green-500 font-medium animate-pulse">
-              Link copied to clipboard!
-            </span>
-          )}
         </div>
       </div>
     </div>
