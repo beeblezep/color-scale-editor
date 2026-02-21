@@ -1048,7 +1048,12 @@ export default function ColorScaleEditor() {
   };
 
   const addColorScale = () => {
-    const hex = '#3b82f6';
+    // Generate random color with good saturation and medium lightness
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 0.70 + Math.random() * 0.20; // 70-90%
+    const lightness = 0.45 + Math.random() * 0.20; // 45-65%
+    const rgb = hslToRgb(hue, saturation, lightness);
+    const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
     const baseName = getNearestColorName(hex);
 
     // Check if a scale with this name already exists
@@ -2157,23 +2162,66 @@ export default function ColorScaleEditor() {
                     ) : null}
                   </div>
 
-                  {/* Swatches row */}
-                  <div className="flex gap-1.5 flex-1 h-10">
+                  {/* Swatches row with text overlay */}
+                  <div className="flex gap-1.5 flex-1">
                     {cs.isSingleColor ? (
-                      // Single color: show larger single swatch
-                      <div
-                        className="w-full h-full rounded"
-                        style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex }}
-                      />
-                    ) : (
-                      // Scale: show all swatches
-                      scale.map((v, i) => (
+                      // Single color: show larger single swatch with hex
+                      <div className="w-full flex flex-col gap-1">
                         <div
-                          key={i}
-                          className="flex-1 rounded"
-                          style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex }}
-                        />
-                      ))
+                          className="h-14 rounded relative flex items-center justify-center"
+                          style={{
+                            background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex,
+                            border: '0.5px solid rgba(128, 128, 128, 0.5)'
+                          }}
+                        >
+                          <span
+                            className={`font-dm-mono italic font-medium text-sm ${parseFloat(cs.lstar) > 50 ? 'text-gray-900' : 'text-white'}`}
+                          >
+                            {cs.hex.slice(1)}
+                          </span>
+                        </div>
+                        <div className={`text-center text-xs font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                          <div>L* {parseFloat(cs.lstar).toFixed(1)}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Scale: show all swatches with hex on swatch, step and L* below
+                      scale.map((v, i) => {
+                        const isLight = parseFloat(v.lstar) > 50;
+                        const textColor = isLight ? 'text-gray-900' : 'text-white';
+                        const isKeyColor = cs.lockKeyColor
+                          ? v.hex.toLowerCase() === cs.hex.toLowerCase()
+                          : i === keyColorIndex;
+                        return (
+                            <div key={i} className="flex-1 flex flex-col gap-1">
+                              <div
+                                className="h-14 rounded relative flex items-center justify-center"
+                                style={{
+                                  background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex,
+                                  border: '0.5px solid rgba(128, 128, 128, 0.5)'
+                                }}
+                              >
+                                <span
+                                  className={`font-dm-mono italic font-medium text-[10px] ${textColor}`}
+                                >
+                                  {v.hex.slice(1)}
+                                </span>
+                                {isKeyColor && (
+                                  <span
+                                    className={`material-symbols-rounded absolute bottom-1 right-1 text-[14px] ${textColor}`}
+                                    style={{ opacity: 0.5, fontVariationSettings: "'FILL' 1" }}
+                                  >
+                                    {cs.lockKeyColor ? 'lock' : 'key'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className={`text-center text-[10px] font-mono leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                                <div>{v.step}</div>
+                                <div>L* {parseFloat(v.lstar).toFixed(1)}</div>
+                              </div>
+                            </div>
+                          );
+                        })
                     )}
                   </div>
 
@@ -2793,39 +2841,6 @@ export default function ColorScaleEditor() {
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Swatch Preview Bar */}
-                  <div className="relative mb-4">
-                    <div
-                      className="flex gap-2 h-16 rounded-lg p-4"
-                      style={{ background: cs.lightSurface ? '#ffffff' : '#000000' }}
-                    >
-                      {scale.map((v, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 rounded"
-                          style={{ background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex }}
-                        />
-                      ))}
-                    </div>
-                    {hoveredSwatch.scaleId === cs.id && hoveredSwatch.index !== null && (
-                      <div
-                        className="absolute top-0 bottom-0 pointer-events-none transition-all duration-200"
-                        style={{
-                          left: `calc(1rem + ${hoveredSwatch.index} * ((100% - 2rem + 0.5rem) / ${scale.length}))`,
-                          width: `calc((100% - 2rem + 0.5rem) / ${scale.length} - 0.5rem)`,
-                        }}
-                      >
-                        <div
-                          className="w-full h-full border rounded transition-opacity duration-200"
-                          style={{
-                            borderColor: cs.lightSurface ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.4)',
-                            boxShadow: cs.lightSurface ? '0 0 8px rgba(0, 0, 0, 0.1)' : '0 0 8px rgba(255, 255, 255, 0.1)'
-                          }}
-                        />
-                      </div>
-                    )}
                   </div>
 
                   {/* Swatch Grid */}

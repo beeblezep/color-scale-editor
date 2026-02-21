@@ -11,6 +11,9 @@
   .font-fraunces {
     font-family: 'Fraunces', serif;
   }
+  .font-dm-mono {
+    font-family: 'DM Mono', monospace;
+  }
 }
 
 * {

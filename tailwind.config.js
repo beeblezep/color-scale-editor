@@ -9,6 +9,7 @@ export default {
       fontFamily: {
         'fraunces': ['Fraunces', 'serif'],
         'space-grotesk': ['Space Grotesk', 'sans-serif'],
+        'dm-mono': ['DM Mono', 'monospace'],
       },
     },
   },
