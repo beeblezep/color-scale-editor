@@ -2085,9 +2085,12 @@ export default function ColorScaleEditor() {
 
             // If key color is locked, replace the closest swatch with exact hex
             if (cs.lockKeyColor && keyColorIndex >= 0) {
+              const lockedRgb = hexToRgb(cs.hex);
+              const lockedLstar = rgbToLstar(lockedRgb.r, lockedRgb.g, lockedRgb.b);
               scale[keyColorIndex] = {
                 ...scale[keyColorIndex],
-                hex: cs.hex
+                hex: cs.hex,
+                lstar: lockedLstar.toFixed(1)
               };
             }
 
@@ -2141,47 +2144,148 @@ export default function ColorScaleEditor() {
                 onClick={() => toggleScaleExpanded(cs.id)}
                 className={`p-4 cursor-pointer transition-colors ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-zinc-800'}`}
               >
-                <div className="flex items-center gap-3">
-                  {/* Color dot and name */}
-                  <div className="w-32 flex-shrink-0 flex items-center gap-2">
-                    <div
-                      className={`w-5 h-5 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-gray-600'}`}
-                      style={{ background: cs.hex }}
+                {/* Token Prefix and Key Color - Compact */}
+                <div className="flex items-center gap-3 mb-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                      Token:
+                    </label>
+                    <input
+                      type="text"
+                      value={cs.name}
+                      onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
+                      placeholder="color"
+                      className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                        theme === 'light'
+                          ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                          : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                      }`}
                     />
-                    <span className={`text-sm font-medium ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{cs.name}</span>
-
-                    {/* Mode indicator badge */}
-                    {cs.isSingleColor ? (
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${theme === 'light' ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
-                        single
-                      </span>
-                    ) : cs.swatchCountOverride !== null ? (
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${theme === 'light' ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
-                        {cs.swatchCountOverride}×
-                      </span>
-                    ) : null}
                   </div>
+                  <div className="flex items-center gap-2">
+                    <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                      Key:
+                    </label>
+                    <input
+                      type="color"
+                      value={cs.hex}
+                      onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
+                      className={`w-8 h-8 rounded cursor-pointer ${
+                        theme === 'light'
+                          ? 'border border-gray-300 bg-white'
+                          : 'border border-zinc-700 bg-black'
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      defaultValue={cs.hex}
+                      key={cs.hex}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
+                          updateColorScaleHex(cs.id, value);
+                        } else {
+                          e.target.value = cs.hex;
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.target.blur();
+                        }
+                      }}
+                      className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                        theme === 'light'
+                          ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                          : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
+                      }`}
+                    />
+                  </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cs.lockKeyColor}
+                      onChange={() => toggleLockKeyColor(cs.id)}
+                      className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                        theme === 'light'
+                          ? 'border-gray-300 bg-white'
+                          : 'border-zinc-700 bg-black'
+                      }`}
+                    />
+                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
+                  </label>
+                  {colorScales.length > 1 && (
+                    <div className="relative harmonize-dropdown-container">
+                      <button
+                        onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
+                        className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                          theme === 'light'
+                            ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                        }`}
+                      >
+                        Harmonize
+                      </button>
+                      <div
+                        className="overflow-hidden absolute top-full left-0 z-50"
+                        style={{
+                          maxHeight: harmonizingScale === cs.id ? '400px' : '0',
+                          opacity: harmonizingScale === cs.id ? 1 : 0,
+                          marginTop: harmonizingScale === cs.id ? '8px' : '0',
+                          transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                        }}
+                      >
+                        <div className={`rounded-lg p-3 shadow-xl min-w-[200px] ${
+                          theme === 'light'
+                            ? 'bg-white border border-gray-300'
+                            : 'bg-zinc-900 border border-zinc-700'
+                        }`}>
+                          <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
+                          <div className="flex flex-col gap-1.5">
+                            {colorScales
+                              .filter(otherScale => otherScale.id !== cs.id)
+                              .map(otherScale => (
+                                <button
+                                  key={otherScale.id}
+                                  onClick={() => {
+                                    harmonizeWithColor(cs.id, otherScale.id);
+                                    setHarmonizingScale(null);
+                                  }}
+                                  className={`px-2 py-1.5 rounded text-xs text-left transition-colors flex items-center gap-2 ${
+                                    theme === 'light'
+                                      ? 'hover:bg-gray-100 text-gray-900'
+                                      : 'hover:bg-zinc-800 text-gray-200'
+                                  }`}
+                                >
+                                  <div
+                                    className="w-4 h-4 rounded"
+                                    style={{ background: otherScale.hex }}
+                                  />
+                                  <span className="font-mono">{otherScale.name}</span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
+                <div className="flex items-center gap-3">
                   {/* Swatches row with text overlay */}
                   <div className="flex gap-1.5 flex-1">
                     {cs.isSingleColor ? (
                       // Single color: show larger single swatch with hex
                       <div className="w-full flex flex-col gap-1">
                         <div
-                          className="h-14 rounded relative flex items-center justify-center"
+                          className="h-14 rounded relative"
                           style={{
                             background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex,
                             border: '0.5px solid rgba(128, 128, 128, 0.5)'
                           }}
-                        >
-                          <span
-                            className={`font-dm-mono italic font-medium text-sm ${parseFloat(cs.lstar) > 50 ? 'text-gray-900' : 'text-white'}`}
-                          >
-                            {cs.hex.slice(1)}
-                          </span>
-                        </div>
-                        <div className={`text-center text-xs font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                          <div>L* {parseFloat(cs.lstar).toFixed(1)}</div>
+                        />
+                        <div className={`text-center text-xs font-dm-mono italic leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                          <div>{cs.hex.slice(1)}</div>
+                          <div className="font-mono not-italic">L* {parseFloat(cs.lstar).toFixed(1)}</div>
                         </div>
                       </div>
                     ) : (
@@ -2195,29 +2299,25 @@ export default function ColorScaleEditor() {
                         return (
                             <div key={i} className="flex-1 flex flex-col gap-1">
                               <div
-                                className="h-14 rounded relative flex items-center justify-center"
+                                className="h-14 rounded relative"
                                 style={{
                                   background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex,
                                   border: '0.5px solid rgba(128, 128, 128, 0.5)'
                                 }}
                               >
-                                <span
-                                  className={`font-dm-mono italic font-medium text-[10px] ${textColor}`}
-                                >
-                                  {v.hex.slice(1)}
-                                </span>
                                 {isKeyColor && (
                                   <span
-                                    className={`material-symbols-rounded absolute bottom-1 right-1 text-[14px] ${textColor}`}
+                                    className={`material-symbols-rounded absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[14px] ${textColor}`}
                                     style={{ opacity: 0.5, fontVariationSettings: "'FILL' 1" }}
                                   >
                                     {cs.lockKeyColor ? 'lock' : 'key'}
                                   </span>
                                 )}
                               </div>
-                              <div className={`text-center text-[10px] font-mono leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                <div>{v.step}</div>
-                                <div>L* {parseFloat(v.lstar).toFixed(1)}</div>
+                              <div className={`text-center text-[10px] leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                                <div className="font-dm-mono">{v.hex.slice(1)}</div>
+                                <div className="font-dm-mono">{v.step}</div>
+                                <div className="font-dm-mono">L* {parseFloat(v.lstar).toFixed(1)}</div>
                               </div>
                             </div>
                           );
@@ -2372,7 +2472,7 @@ export default function ColorScaleEditor() {
                   </div>
 
                   {/* Token Prefix and Key Color */}
-                  <div className="mb-4 flex gap-4 items-start">
+                  <div className="mb-4 flex gap-4 items-start hidden">
                     <div>
                       <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
                         Token Prefix
@@ -2844,7 +2944,7 @@ export default function ColorScaleEditor() {
                   </div>
 
                   {/* Swatch Grid */}
-                  <div className="grid grid-cols-6 gap-2">
+                  <div className="grid grid-cols-6 gap-2 hidden">
                     {scale.map((v, i) => {
                       const isEditing = editingSwatch.scaleId === cs.id && editingSwatch.step === v.step;
                       const isKeyColor = cs.lockKeyColor
