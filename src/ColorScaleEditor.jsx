@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motionPresets } from './motionTokens';
-import { SegmentedControl, Theme, Switch } from '@radix-ui/themes';
+import { SegmentedControl, Theme, Switch, Tooltip } from '@radix-ui/themes';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ColorScaleEditor() {
@@ -56,6 +56,10 @@ export default function ColorScaleEditor() {
   const [showVisualControls, setShowVisualControls] = useState(false); // Toggle to show/hide visual sliders and bezier canvas
   const [dragState, setDragState] = useState(null); // For drag-to-change number inputs
   const [theme, setTheme] = useState('light'); // Theme mode: 'light' or 'dark'
+  const [viewMode, setViewMode] = useState('default'); // View mode: 'default' or 'simple'
+  const [contrastCheck, setContrastCheck] = useState('off'); // Contrast check: 'off', 'aa', or 'apca'
+  const [contrastColor1, setContrastColor1] = useState('#ffffff'); // First custom contrast test color (default white)
+  const [contrastColor2, setContrastColor2] = useState('#000000'); // Second custom contrast test color (default black)
   const miniCanvasRefs = useRef({});
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
@@ -162,6 +166,215 @@ export default function ColorScaleEditor() {
       g: parseInt(result[2], 16),
       b: parseInt(result[3], 16)
     } : null;
+  };
+
+  // Calculate relative luminance for WCAG contrast
+  const getRelativeLuminance = (r, g, b) => {
+    const rsRGB = r / 255;
+    const gsRGB = g / 255;
+    const bsRGB = b / 255;
+
+    const r_linear = rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
+    const g_linear = gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
+    const b_linear = bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
+
+    return 0.2126 * r_linear + 0.7152 * g_linear + 0.0722 * b_linear;
+  };
+
+  // Calculate WCAG AA contrast ratio
+  const getContrastRatio = (hex1, hex2) => {
+    const rgb1 = hexToRgb(hex1);
+    const rgb2 = hexToRgb(hex2);
+    if (!rgb1 || !rgb2) return 1;
+
+    const l1 = getRelativeLuminance(rgb1.r, rgb1.g, rgb1.b);
+    const l2 = getRelativeLuminance(rgb2.r, rgb2.g, rgb2.b);
+
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+
+    return (lighter + 0.05) / (darker + 0.05);
+  };
+
+  // Calculate APCA contrast (simplified version)
+  const getAPCAContrast = (textHex, bgHex) => {
+    const textRgb = hexToRgb(textHex);
+    const bgRgb = hexToRgb(bgHex);
+    if (!textRgb || !bgRgb) return 0;
+
+    // Get Y (luminance) values
+    const textY = getRelativeLuminance(textRgb.r, textRgb.g, textRgb.b);
+    const bgY = getRelativeLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
+
+    // APCA constants
+    const blkThrs = 0.022;
+    const blkClmp = 1.414;
+    const scaleBoW = 1.14;
+    const scaleWoB = 1.14;
+    const normBG = 0.56;
+    const normTXT = 0.57;
+    const revTXT = 0.62;
+    const revBG = 0.65;
+
+    // Soft clamp
+    const Ytxt = textY >= blkThrs ? textY : textY + Math.pow(blkThrs - textY, blkClmp);
+    const Ybg = bgY >= blkThrs ? bgY : bgY + Math.pow(blkThrs - bgY, blkClmp);
+
+    let SAPC;
+    if (Ybg > Ytxt) {
+      // Light background, dark text (negative polarity)
+      SAPC = (Math.pow(Ybg, normBG) - Math.pow(Ytxt, normTXT)) * scaleBoW;
+    } else {
+      // Dark background, light text (positive polarity)
+      SAPC = (Math.pow(Ybg, revBG) - Math.pow(Ytxt, revTXT)) * scaleWoB;
+    }
+
+    // Return absolute value as Lc (contrast lightness)
+    return Math.abs(SAPC * 100);
+  };
+
+  // Get friendly name for common colors, otherwise return hex
+  const getColorName = (hex) => {
+    const colorNames = {
+      '#ffffff': 'White',
+      '#000000': 'Black',
+      '#ff0000': 'Red',
+      '#00ff00': 'Lime',
+      '#0000ff': 'Blue',
+      '#ffff00': 'Yellow',
+      '#00ffff': 'Cyan',
+      '#ff00ff': 'Magenta',
+      '#c0c0c0': 'Silver',
+      '#808080': 'Gray',
+      '#800000': 'Maroon',
+      '#808000': 'Olive',
+      '#008000': 'Green',
+      '#800080': 'Purple',
+      '#008080': 'Teal',
+      '#000080': 'Navy'
+    };
+
+    const normalized = hex.toLowerCase();
+    return colorNames[normalized] || hex.toUpperCase();
+  };
+
+  // Tooltip content generators for contrast values
+  const getAATooltipContent = (contrastValue, textColor, currentTheme) => {
+    const passes3 = contrastValue >= 3;
+    const passes4_5 = contrastValue >= 4.5;
+    const passes7 = contrastValue >= 7;
+
+    // Light mode: dark tooltip bg, needs light text
+    // Dark mode: light tooltip bg, needs dark text
+    const headingClass = currentTheme === 'light' ? 'text-white' : 'text-gray-900';
+    const subheadingClass = currentTheme === 'light' ? 'text-gray-100' : 'text-gray-800';
+    const passClass = currentTheme === 'light' ? 'text-green-300' : 'text-green-700';
+    const failClass = currentTheme === 'light' ? 'text-gray-400' : 'text-gray-500';
+
+    const colorName = getColorName(textColor);
+
+    return (
+      <div className="p-2 max-w-xs">
+        <div className={`font-semibold mb-2 ${headingClass}`}>
+          {colorName} Text: {contrastValue.toFixed(1)}:1
+        </div>
+        <div className="text-xs space-y-1">
+          <div className={`font-medium mb-1 ${subheadingClass}`}>WCAG 2.0 Level AA:</div>
+          <div className={passes3 ? passClass : failClass}>
+            {passes3 ? '✓' : '✗'} Large text (18pt+): 3:1
+          </div>
+          <div className={passes4_5 ? passClass : failClass}>
+            {passes4_5 ? '✓' : '✗'} Normal text: 4.5:1
+          </div>
+          <div className={`font-medium mt-2 mb-1 ${subheadingClass}`}>WCAG 2.0 Level AAA:</div>
+          <div className={passes4_5 ? passClass : failClass}>
+            {passes4_5 ? '✓' : '✗'} Large text: 4.5:1
+          </div>
+          <div className={passes7 ? passClass : failClass}>
+            {passes7 ? '✓' : '✗'} Normal text: 7:1
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const getAPCATooltipContent = (contrastValue, textColor, currentTheme) => {
+    const thresholds = [
+      { label: 'Non-text Elements', value: 15, category: 'use' },
+      { label: 'Spot Text', value: 30, category: 'use' },
+      { label: 'Headlines', value: 45, category: 'use' },
+      { label: 'Content Text', value: 60, category: 'use' },
+      { label: 'Body Text', value: 75, category: 'avoid' },
+      { label: 'Fluent Text', value: 90, category: 'avoid' }
+    ];
+
+    const useFor = thresholds.filter(t => t.category === 'use' && contrastValue >= t.value);
+    const avoidFor = thresholds.filter(t => t.category === 'avoid' && contrastValue < t.value);
+
+    const headingClass = currentTheme === 'light' ? 'text-white' : 'text-gray-900';
+    const subheadingClass = currentTheme === 'light' ? 'text-gray-100' : 'text-gray-800';
+
+    const colorName = getColorName(textColor);
+
+    return (
+      <div className="p-2 max-w-xs">
+        <div className={`font-semibold mb-2 ${headingClass}`}>
+          {colorName} Text: Lc {contrastValue.toFixed(0)}
+        </div>
+
+        {useFor.length > 0 && (
+          <div className="mb-2">
+            <div className={`text-xs font-medium mb-1 ${subheadingClass}`}>Use for:</div>
+            <div className="flex flex-wrap gap-1">
+              {useFor.map(t => (
+                <span key={t.label} className="text-[10px] px-1.5 py-0.5 rounded bg-green-600 text-white">
+                  {t.label} (Lc {t.value})
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {avoidFor.length > 0 && (
+          <div>
+            <div className={`text-xs font-medium mb-1 ${subheadingClass}`}>Avoid for:</div>
+            <div className="flex flex-wrap gap-1">
+              {avoidFor.map(t => (
+                <span key={t.label} className="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white">
+                  {t.label} (Lc {t.value})
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getNATooltipContent = (contrastValue, textColor, mode, currentTheme) => {
+    const warningClass = currentTheme === 'light' ? 'text-orange-300' : 'text-orange-700';
+    const primaryClass = currentTheme === 'light' ? 'text-gray-100' : 'text-gray-900';
+    const secondaryClass = currentTheme === 'light' ? 'text-gray-300' : 'text-gray-700';
+
+    const colorName = getColorName(textColor);
+
+    return (
+      <div className="p-2 max-w-xs">
+        <div className={`font-semibold mb-2 ${warningClass}`}>
+          {colorName} Text: Below Threshold
+        </div>
+        <div className={`text-xs mb-2 ${primaryClass}`}>
+          {mode === 'aa'
+            ? `Contrast: ${contrastValue.toFixed(1)}:1 (needs 4.5:1)`
+            : `Lc ${contrastValue.toFixed(0)} (needs 60+)`
+          }
+        </div>
+        <div className={`text-xs ${secondaryClass}`}>
+          This color doesn't meet minimum accessibility standards for text.
+          Consider using it for decorative elements only.
+        </div>
+      </div>
+    );
   };
 
   // RGB to HSL
@@ -1654,8 +1867,40 @@ export default function ColorScaleEditor() {
     <Theme appearance={theme}>
       <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-black text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
-        <h1 className={`text-7xl font-semiBold mb-2 font-fraunces ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Primitive Color Builder</h1>
-        <p className={`mb-8 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>Interactive bezier curve editor for perceptually uniform color scales</p>
+        {/* Header with Title and Social Links */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className={`text-7xl font-semiBold mb-2 font-fraunces ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Primitive color builder</h1>
+            <p className={theme === 'light' ? 'text-gray-500' : 'text-gray-500'}>Interactive bezier curve editor for perceptually uniform color scales</p>
+          </div>
+
+          {/* Social Media Links */}
+          <div className="flex items-center gap-3 pt-2">
+            <a
+              href="https://github.com/beeblezep/color-scale-editor"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`transition-opacity hover:opacity-70 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}
+              aria-label="GitHub Repository"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+            </a>
+
+            <a
+              href="https://www.linkedin.com/in/craigmertan/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`transition-opacity hover:opacity-70 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}
+              aria-label="LinkedIn Profile"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
 
         {/* Global Settings - Compact Input Controls */}
         <div className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
@@ -1691,6 +1936,82 @@ export default function ColorScaleEditor() {
                 Dark
               </button>
             </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2">
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                View:
+              </label>
+              <SegmentedControl.Root value={viewMode} onValueChange={setViewMode} size="1">
+                <SegmentedControl.Item value="default">Default</SegmentedControl.Item>
+                <SegmentedControl.Item value="simple">Simple</SegmentedControl.Item>
+              </SegmentedControl.Root>
+            </div>
+
+            {/* Contrast Check Toggle */}
+            <div className="flex items-center gap-2">
+              <Tooltip content={
+                <div className="p-2 max-w-xs text-xs">
+                  <div className={`font-semibold mb-2 ${theme === 'light' ? 'text-white' : 'text-gray-900'}`}>Contrast Checker</div>
+                  <div className="space-y-2">
+                    <div>
+                      <span className={`font-medium ${theme === 'light' ? 'text-gray-100' : 'text-gray-800'}`}>AA:</span>
+                      <span className={theme === 'light' ? 'text-gray-300' : 'text-gray-700'}> WCAG 2.0 contrast ratios (4.5:1 for normal text)</span>
+                    </div>
+                    <div>
+                      <span className={`font-medium ${theme === 'light' ? 'text-gray-100' : 'text-gray-800'}`}>APCA:</span>
+                      <span className={theme === 'light' ? 'text-gray-300' : 'text-gray-700'}> Advanced Perceptual Contrast Algorithm (Lc 60+ for content text)</span>
+                    </div>
+                  </div>
+                </div>
+              }>
+                <label className={`text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                  Contrast:
+                </label>
+              </Tooltip>
+              <SegmentedControl.Root value={contrastCheck} onValueChange={setContrastCheck} size="1">
+                <SegmentedControl.Item value="off">Off</SegmentedControl.Item>
+                <SegmentedControl.Item value="aa">AA</SegmentedControl.Item>
+                <SegmentedControl.Item value="apca">APCA</SegmentedControl.Item>
+              </SegmentedControl.Root>
+            </div>
+
+            {/* Contrast Test Colors - Only show when contrast checking is enabled */}
+            <AnimatePresence>
+            {contrastCheck !== 'off' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="flex items-center gap-2 overflow-hidden"
+              >
+                <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                  Test Colors:
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <Tooltip content="First text color to test (default: white)">
+                    <input
+                      type="color"
+                      value={contrastColor1}
+                      onChange={(e) => setContrastColor1(e.target.value)}
+                      className="w-7 h-7 rounded cursor-pointer border border-gray-300"
+                      title="Color 1"
+                    />
+                  </Tooltip>
+                  <Tooltip content="Second text color to test (default: black)">
+                    <input
+                      type="color"
+                      value={contrastColor2}
+                      onChange={(e) => setContrastColor2(e.target.value)}
+                      className="w-7 h-7 rounded cursor-pointer border border-gray-300"
+                      title="Color 2"
+                    />
+                  </Tooltip>
+                </div>
+              </motion.div>
+            )}
+            </AnimatePresence>
 
             {/* Swatches Count */}
             <div className="flex items-center gap-2">
@@ -1910,14 +2231,14 @@ export default function ColorScaleEditor() {
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
               >
                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>download</span>
-                Export Tokens
+                Export tokens
               </button>
               <button
                 onClick={generateShareUrl}
                 className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
               >
                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>share</span>
-                Share Palette
+                Share palette
               </button>
               <button
                 onClick={toggleAllDesaturate}
@@ -1933,7 +2254,7 @@ export default function ColorScaleEditor() {
                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>
                   {desaturatedScales.size === colorScales.length ? 'palette' : 'contrast'}
                 </span>
-                {desaturatedScales.size === colorScales.length ? 'Show Colors' : 'Show Luminance'}
+                {desaturatedScales.size === colorScales.length ? 'Show colors' : 'Show luminance'}
               </button>
               {showCopiedMessage && (
                 <span className="text-xs text-green-500 font-medium animate-pulse">
@@ -1952,7 +2273,7 @@ export default function ColorScaleEditor() {
                 : 'text-gray-400 hover:text-gray-200 border-t border-zinc-800'
             }`}
           >
-            <span className="font-medium">{showVisualControls ? 'Hide' : 'Show'} Visual Controls</span>
+            <span className="font-medium">{showVisualControls ? 'Hide' : 'Show'} visual controls</span>
             <span
               className="material-symbols-rounded"
               style={{
@@ -1983,7 +2304,7 @@ export default function ColorScaleEditor() {
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (Light)</label>
+                    <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
                     <input
                       type="range"
                       min="5"
@@ -1995,7 +2316,7 @@ export default function ColorScaleEditor() {
                     <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {globalLstarMax}</div>
                   </div>
                   <div>
-                    <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (Dark)</label>
+                    <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
                     <input
                       type="range"
                       min="0"
@@ -2120,6 +2441,7 @@ export default function ColorScaleEditor() {
           return (
             <motion.div
               key={cs.id}
+              layout
               initial={{ opacity: 0, y: -20 }}
               animate={{
                 opacity: 1,
@@ -2137,138 +2459,195 @@ export default function ColorScaleEditor() {
                   ease: [0.4, 0, 1, 1] // accelerate
                 }
               }}
+              transition={{
+                layout: {
+                  duration: 0.3,
+                  ease: [0.4, 0, 0.2, 1]
+                }
+              }}
               className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
             >
               {/* Always visible compact header */}
               <div
-                onClick={() => toggleScaleExpanded(cs.id)}
-                className={`p-4 cursor-pointer transition-colors ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-zinc-800'}`}
+                onClick={() => viewMode === 'default' && toggleScaleExpanded(cs.id)}
+                className={`p-4 ${viewMode === 'default' ? 'cursor-pointer' : ''}`}
               >
                 {/* Token Prefix and Key Color - Compact */}
-                <div className="flex items-center gap-3 mb-3" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-2">
-                    <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                      Token:
-                    </label>
-                    <input
-                      type="text"
-                      value={cs.name}
-                      onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
-                      placeholder="color"
-                      className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                        theme === 'light'
-                          ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                          : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                      Key:
-                    </label>
-                    <input
-                      type="color"
-                      value={cs.hex}
-                      onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
-                      className={`w-8 h-8 rounded cursor-pointer ${
-                        theme === 'light'
-                          ? 'border border-gray-300 bg-white'
-                          : 'border border-zinc-700 bg-black'
-                      }`}
-                    />
-                    <input
-                      type="text"
-                      defaultValue={cs.hex}
-                      key={cs.hex}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim();
-                        if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
-                          updateColorScaleHex(cs.id, value);
-                        } else {
-                          e.target.value = cs.hex;
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.target.blur();
-                        }
-                      }}
-                      className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                        theme === 'light'
-                          ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                          : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
-                      }`}
-                    />
-                  </div>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cs.lockKeyColor}
-                      onChange={() => toggleLockKeyColor(cs.id)}
-                      className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                        theme === 'light'
-                          ? 'border-gray-300 bg-white'
-                          : 'border-zinc-700 bg-black'
-                      }`}
-                    />
-                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
-                  </label>
-                  {colorScales.length > 1 && (
-                    <div className="relative harmonize-dropdown-container">
-                      <button
-                        onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
-                        className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                {viewMode === 'default' && (
+                <div className="flex items-center justify-between gap-3 mb-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        Token:
+                      </label>
+                      <input
+                        type="text"
+                        value={cs.name}
+                        onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
+                        placeholder="color"
+                        className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                           theme === 'light'
-                            ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                            : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                            ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                            : 'bg-black border border-zinc-700 focus:border-zinc-600'
                         }`}
-                      >
-                        Harmonize
-                      </button>
-                      <div
-                        className="overflow-hidden absolute top-full left-0 z-50"
-                        style={{
-                          maxHeight: harmonizingScale === cs.id ? '400px' : '0',
-                          opacity: harmonizingScale === cs.id ? 1 : 0,
-                          marginTop: harmonizingScale === cs.id ? '8px' : '0',
-                          transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                        }}
-                      >
-                        <div className={`rounded-lg p-3 shadow-xl min-w-[200px] ${
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        Key:
+                      </label>
+                      <input
+                        type="color"
+                        value={cs.hex}
+                        onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
+                        className={`w-8 h-8 rounded cursor-pointer ${
                           theme === 'light'
-                            ? 'bg-white border border-gray-300'
-                            : 'bg-zinc-900 border border-zinc-700'
-                        }`}>
-                          <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
-                          <div className="flex flex-col gap-1.5">
-                            {colorScales
-                              .filter(otherScale => otherScale.id !== cs.id)
-                              .map(otherScale => (
-                                <button
-                                  key={otherScale.id}
-                                  onClick={() => {
-                                    harmonizeWithColor(cs.id, otherScale.id);
-                                    setHarmonizingScale(null);
-                                  }}
-                                  className={`px-2 py-1.5 rounded text-xs text-left transition-colors flex items-center gap-2 ${
-                                    theme === 'light'
-                                      ? 'hover:bg-gray-100 text-gray-900'
-                                      : 'hover:bg-zinc-800 text-gray-200'
-                                  }`}
-                                >
-                                  <div
-                                    className="w-4 h-4 rounded"
-                                    style={{ background: otherScale.hex }}
-                                  />
-                                  <span className="font-mono">{otherScale.name}</span>
-                                </button>
-                              ))}
+                            ? 'border border-gray-300 bg-white'
+                            : 'border border-zinc-700 bg-black'
+                        }`}
+                      />
+                      <input
+                        type="text"
+                        defaultValue={cs.hex}
+                        key={cs.hex}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim();
+                          if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
+                            updateColorScaleHex(cs.id, value);
+                          } else {
+                            e.target.value = cs.hex;
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.target.blur();
+                          }
+                        }}
+                        className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                          theme === 'light'
+                            ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                            : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
+                        }`}
+                      />
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cs.lockKeyColor}
+                        onChange={() => toggleLockKeyColor(cs.id)}
+                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                          theme === 'light'
+                            ? 'border-gray-300 bg-white'
+                            : 'border-zinc-700 bg-black'
+                        }`}
+                      />
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
+                    </label>
+                    {colorScales.length > 1 && (
+                      <div className="relative harmonize-dropdown-container">
+                        <Tooltip content="Adjusts saturation and lightness to match another color while preserving hue. Creates cohesive palettes where colors have similar vibrancy and brightness.">
+                          <button
+                            onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
+                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                              theme === 'light'
+                                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                            }`}
+                          >
+                            Harmonize...
+                          </button>
+                        </Tooltip>
+                        <div
+                          className="overflow-hidden absolute top-full left-0 z-50"
+                          style={{
+                            maxHeight: harmonizingScale === cs.id ? '400px' : '0',
+                            opacity: harmonizingScale === cs.id ? 1 : 0,
+                            marginTop: harmonizingScale === cs.id ? '8px' : '0',
+                            transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                          }}
+                        >
+                          <div className={`rounded-lg p-3 shadow-xl min-w-[200px] ${
+                            theme === 'light'
+                              ? 'bg-white border border-gray-300'
+                              : 'bg-zinc-900 border border-zinc-700'
+                          }`}>
+                            <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
+                            <div className="flex flex-col gap-1.5">
+                              {colorScales
+                                .filter(otherScale => otherScale.id !== cs.id)
+                                .map(otherScale => (
+                                  <button
+                                    key={otherScale.id}
+                                    onClick={() => {
+                                      harmonizeWithColor(cs.id, otherScale.id);
+                                      setHarmonizingScale(null);
+                                    }}
+                                    className={`px-2 py-1.5 rounded text-xs text-left transition-colors flex items-center gap-2 ${
+                                      theme === 'light'
+                                        ? 'hover:bg-gray-100 text-gray-900'
+                                        : 'hover:bg-zinc-800 text-gray-200'
+                                    }`}
+                                  >
+                                    <div
+                                      className="w-4 h-4 rounded"
+                                      style={{ background: otherScale.hex }}
+                                    />
+                                    <span className="font-mono">{otherScale.name}</span>
+                                  </button>
+                                ))}
+                            </div>
                           </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons - right side */}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}>
+                      <button
+                        onClick={() => moveColorScale(cs.id, 'up')}
+                        disabled={scaleIndex === 0}
+                        className={`p-1.5 transition-all duration-150 ease-in-out ${
+                          scaleIndex === 0
+                            ? theme === 'light'
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                              : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
+                            : theme === 'light'
+                              ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
+                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
+                        }`}
+                        title="Move up"
+                      >
+                        <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_upward</span>
+                      </button>
+                      <button
+                        onClick={() => moveColorScale(cs.id, 'down')}
+                        disabled={scaleIndex === colorScales.length - 1}
+                        className={`p-1.5 transition-all duration-150 ease-in-out ${
+                          scaleIndex === colorScales.length - 1
+                            ? theme === 'light'
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                              : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
+                            : theme === 'light'
+                              ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
+                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
+                        }`}
+                        title="Move down"
+                      >
+                        <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_downward</span>
+                      </button>
                     </div>
-                  )}
+                    <button
+                      onClick={() => removeColorScale(cs.id)}
+                      className="p-1.5 hover:bg-red-900 rounded transition-all duration-150 ease-in-out text-red-400 active:bg-red-950 active:scale-95"
+                      title="Remove scale"
+                    >
+                      <span className="material-symbols-rounded text-[16px]">delete</span>
+                    </button>
+                  </div>
                 </div>
+                )}
 
                 <div className="flex items-center gap-3">
                   {/* Swatches row with text overlay */}
@@ -2282,11 +2661,76 @@ export default function ColorScaleEditor() {
                             background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex,
                             border: '0.5px solid rgba(128, 128, 128, 0.5)'
                           }}
-                        />
+                        >
+                          <AnimatePresence mode="wait">
+                          {contrastCheck !== 'off' && (() => {
+                            const swatchHex = desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex;
+                            const color1Contrast = contrastCheck === 'aa'
+                              ? getContrastRatio(contrastColor1, swatchHex)
+                              : getAPCAContrast(contrastColor1, swatchHex);
+                            const color2Contrast = contrastCheck === 'aa'
+                              ? getContrastRatio(contrastColor2, swatchHex)
+                              : getAPCAContrast(contrastColor2, swatchHex);
+
+                            const color1Passes = contrastCheck === 'aa' ? color1Contrast >= 4.5 : color1Contrast >= 60;
+                            const color2Passes = contrastCheck === 'aa' ? color2Contrast >= 4.5 : color2Contrast >= 60;
+
+                            // If neither passes, show the better one with "n/a"
+                            const showBetter = !color1Passes && !color2Passes;
+                            const color1IsBetter = color1Contrast > color2Contrast;
+
+                            // Get color names for tooltips
+                            const color1Name = contrastColor1.toLowerCase();
+                            const color2Name = contrastColor2.toLowerCase();
+
+                            return (
+                              <motion.div
+                                key={contrastCheck}
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                                className="absolute inset-0 flex flex-col items-center justify-center gap-1"
+                              >
+                                {(color1Passes || (showBetter && color1IsBetter)) && (
+                                  <Tooltip content={color1Passes
+                                    ? (contrastCheck === 'aa'
+                                      ? getAATooltipContent(color1Contrast, color1Name, theme)
+                                      : getAPCATooltipContent(color1Contrast, color1Name, theme))
+                                    : getNATooltipContent(color1Contrast, color1Name, contrastCheck, theme)
+                                  }>
+                                    <div style={{ color: contrastColor1 }} className="text-xs font-mono font-medium leading-none cursor-help">
+                                      {color1Passes
+                                        ? (contrastCheck === 'aa' ? `${color1Contrast.toFixed(1)}:1` : `${color1Contrast.toFixed(0)}`)
+                                        : 'n/a'}
+                                    </div>
+                                  </Tooltip>
+                                )}
+                                {(color2Passes || (showBetter && !color1IsBetter)) && (
+                                  <Tooltip content={color2Passes
+                                    ? (contrastCheck === 'aa'
+                                      ? getAATooltipContent(color2Contrast, color2Name, theme)
+                                      : getAPCATooltipContent(color2Contrast, color2Name, theme))
+                                    : getNATooltipContent(color2Contrast, color2Name, contrastCheck, theme)
+                                  }>
+                                    <div style={{ color: contrastColor2 }} className="text-xs font-mono font-medium leading-none cursor-help">
+                                      {color2Passes
+                                        ? (contrastCheck === 'aa' ? `${color2Contrast.toFixed(1)}:1` : `${color2Contrast.toFixed(0)}`)
+                                        : 'n/a'}
+                                    </div>
+                                  </Tooltip>
+                                )}
+                              </motion.div>
+                            );
+                          })()}
+                          </AnimatePresence>
+                        </div>
+                        {viewMode === 'default' && (
                         <div className={`text-center text-xs font-dm-mono italic leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                           <div>{cs.hex.slice(1)}</div>
                           <div className="font-mono not-italic">L* {parseFloat(cs.lstar).toFixed(1)}</div>
                         </div>
+                        )}
                       </div>
                     ) : (
                       // Scale: show all swatches with hex on swatch, step and L* below
@@ -2305,7 +2749,7 @@ export default function ColorScaleEditor() {
                                   border: '0.5px solid rgba(128, 128, 128, 0.5)'
                                 }}
                               >
-                                {isKeyColor && (
+                                {isKeyColor && viewMode === 'default' && (
                                   <span
                                     className={`material-symbols-rounded absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[14px] ${textColor}`}
                                     style={{ opacity: 0.5, fontVariationSettings: "'FILL' 1" }}
@@ -2313,12 +2757,76 @@ export default function ColorScaleEditor() {
                                     {cs.lockKeyColor ? 'lock' : 'key'}
                                   </span>
                                 )}
+                                <AnimatePresence mode="wait">
+                                {contrastCheck !== 'off' && (() => {
+                                  const swatchHex = desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex;
+                                  const color1Contrast = contrastCheck === 'aa'
+                                    ? getContrastRatio(contrastColor1, swatchHex)
+                                    : getAPCAContrast(contrastColor1, swatchHex);
+                                  const color2Contrast = contrastCheck === 'aa'
+                                    ? getContrastRatio(contrastColor2, swatchHex)
+                                    : getAPCAContrast(contrastColor2, swatchHex);
+
+                                  const color1Passes = contrastCheck === 'aa' ? color1Contrast >= 4.5 : color1Contrast >= 60;
+                                  const color2Passes = contrastCheck === 'aa' ? color2Contrast >= 4.5 : color2Contrast >= 60;
+
+                                  // If neither passes, show the better one with "n/a"
+                                  const showBetter = !color1Passes && !color2Passes;
+                                  const color1IsBetter = color1Contrast > color2Contrast;
+
+                                  // Get color names for tooltips
+                                  const color1Name = contrastColor1.toLowerCase();
+                                  const color2Name = contrastColor2.toLowerCase();
+
+                                  return (
+                                    <motion.div
+                                      key={contrastCheck}
+                                      initial={{ opacity: 0, scale: 0.9 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      exit={{ opacity: 0, scale: 0.9 }}
+                                      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                                      className="absolute inset-0 flex flex-col items-center justify-center gap-0.5"
+                                    >
+                                      {(color1Passes || (showBetter && color1IsBetter)) && (
+                                        <Tooltip content={color1Passes
+                                          ? (contrastCheck === 'aa'
+                                            ? getAATooltipContent(color1Contrast, color1Name, theme)
+                                            : getAPCATooltipContent(color1Contrast, color1Name, theme))
+                                          : getNATooltipContent(color1Contrast, color1Name, contrastCheck, theme)
+                                        }>
+                                          <div style={{ color: contrastColor1 }} className="text-[10px] font-mono font-medium leading-none cursor-help">
+                                            {color1Passes
+                                              ? (contrastCheck === 'aa' ? `${color1Contrast.toFixed(1)}:1` : `${color1Contrast.toFixed(0)}`)
+                                              : 'n/a'}
+                                          </div>
+                                        </Tooltip>
+                                      )}
+                                      {(color2Passes || (showBetter && !color1IsBetter)) && (
+                                        <Tooltip content={color2Passes
+                                          ? (contrastCheck === 'aa'
+                                            ? getAATooltipContent(color2Contrast, color2Name, theme)
+                                            : getAPCATooltipContent(color2Contrast, color2Name, theme))
+                                          : getNATooltipContent(color2Contrast, color2Name, contrastCheck, theme)
+                                        }>
+                                          <div style={{ color: contrastColor2 }} className="text-[10px] font-mono font-medium leading-none cursor-help">
+                                            {color2Passes
+                                              ? (contrastCheck === 'aa' ? `${color2Contrast.toFixed(1)}:1` : `${color2Contrast.toFixed(0)}`)
+                                              : 'n/a'}
+                                          </div>
+                                        </Tooltip>
+                                      )}
+                                    </motion.div>
+                                  );
+                                })()}
+                                </AnimatePresence>
                               </div>
+                              {viewMode === 'default' && (
                               <div className={`text-center text-[10px] leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                                 <div className="font-dm-mono">{v.hex.slice(1)}</div>
                                 <div className="font-dm-mono">{v.step}</div>
                                 <div className="font-dm-mono">L* {parseFloat(v.lstar).toFixed(1)}</div>
                               </div>
+                              )}
                             </div>
                           );
                         })
@@ -2326,23 +2834,8 @@ export default function ColorScaleEditor() {
                   </div>
 
                   {/* Quick actions */}
+                  {viewMode === 'default' && (
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => toggleDesaturateScale(cs.id)}
-                      className={`p-1.5 rounded transition-colors ${theme === 'light' ? 'hover:bg-gray-200' : 'hover:bg-zinc-700'}`}
-                      title="Toggle luminance view"
-                    >
-                      <span className={`material-symbols-rounded text-[16px] ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                        {desaturatedScales.has(cs.id) ? 'contrast' : 'palette'}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => removeColorScale(cs.id)}
-                      className="p-1.5 hover:bg-red-900 rounded transition-colors text-red-400"
-                      title="Remove scale"
-                    >
-                      <span className="material-symbols-rounded text-[16px]">delete</span>
-                    </button>
                     <span
                       className={`material-symbols-rounded ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
                       style={{
@@ -2354,6 +2847,7 @@ export default function ColorScaleEditor() {
                       expand_more
                     </span>
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -2371,59 +2865,6 @@ export default function ColorScaleEditor() {
                   {/* Divider */}
                   <div className={`border-t mb-4 ${theme === 'light' ? 'border-gray-200' : 'border-zinc-800'}`}></div>
 
-                  {/* Action buttons */}
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>Controls</h3>
-                    <div className="flex gap-2">
-                      <div className={`flex gap-1 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}>
-                        <button
-                          onClick={() => moveColorScale(cs.id, 'up')}
-                          disabled={scaleIndex === 0}
-                          className={`px-2 py-1.5 text-xs font-medium transition-colors ${
-                            scaleIndex === 0
-                              ? theme === 'light'
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
-                              : theme === 'light'
-                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300'
-                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
-                          }`}
-                          title="Move up"
-                        >
-                          <span className="material-symbols-rounded text-[16px]">arrow_upward</span>
-                        </button>
-                        <button
-                          onClick={() => moveColorScale(cs.id, 'down')}
-                          disabled={scaleIndex === colorScales.length - 1}
-                          className={`px-2 py-1.5 text-xs font-medium transition-colors ${
-                            scaleIndex === colorScales.length - 1
-                              ? theme === 'light'
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
-                              : theme === 'light'
-                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300'
-                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
-                          }`}
-                          title="Move down"
-                        >
-                          <span className="material-symbols-rounded text-[16px]">arrow_downward</span>
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => toggleColorScaleSurface(cs.id)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                          cs.lightSurface
-                            ? 'bg-white text-black hover:bg-gray-200 border border-gray-300'
-                            : theme === 'light'
-                              ? 'bg-gray-800 text-white hover:bg-gray-900'
-                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700'
-                        }`}
-                      >
-                        {cs.lightSurface ? 'Light Surface' : 'Dark Surface'}
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Single Color Mode and Swatch Count Controls */}
                   <div className="mb-4 flex gap-6 items-center">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -2433,7 +2874,7 @@ export default function ColorScaleEditor() {
                         onChange={() => toggleSingleColorMode(cs.id)}
                         className="w-4 h-4 cursor-pointer"
                       />
-                      <span className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Single Color Mode</span>
+                      <span className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Single color mode</span>
                       <span className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>(hides scale controls)</span>
                     </label>
 
@@ -2464,7 +2905,7 @@ export default function ColorScaleEditor() {
                             onClick={() => clearSwatchCountOverride(cs.id)}
                             className={`text-xs hover:underline ${theme === 'light' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-300'}`}
                           >
-                            Use Global ({numSwatches})
+                            Use global ({numSwatches})
                           </button>
                         )}
                       </div>
@@ -2636,7 +3077,7 @@ export default function ColorScaleEditor() {
                         checked={cs.showAdvancedSettings}
                         onCheckedChange={() => toggleAdvancedSettings(cs.id)}
                       />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Show Advanced Settings</span>
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Show advanced settings</span>
                     </label>
                   </div>
 
@@ -2656,7 +3097,7 @@ export default function ColorScaleEditor() {
                         checked={cs.useCustomLstarRange}
                         onCheckedChange={() => toggleCustomLstarRange(cs.id)}
                       />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use Custom L* Range</span>
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom L* range</span>
                     </label>
                   </div>
                   <div
@@ -2675,7 +3116,7 @@ export default function ColorScaleEditor() {
                   }`}>
                     <div className="flex justify-between items-center mb-2">
                       <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Custom L* Range (Lightness Limits)
+                        Custom L* range (lightness limits)
                       </label>
                       <button
                         onClick={() => resetLstarRange(cs.id)}
@@ -2690,7 +3131,7 @@ export default function ColorScaleEditor() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (Light)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
                         <input
                           type="range"
                           min="5"
@@ -2702,7 +3143,7 @@ export default function ColorScaleEditor() {
                         <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMax}</div>
                       </div>
                       <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (Dark)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
                         <input
                           type="range"
                           min="0"
@@ -2726,7 +3167,7 @@ export default function ColorScaleEditor() {
                   }`}>
                     <div className="flex justify-between items-center mb-2">
                       <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Saturation Range
+                        Saturation range
                       </label>
                       <button
                         onClick={() => resetSaturationRange(cs.id)}
@@ -2741,7 +3182,7 @@ export default function ColorScaleEditor() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (Light)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
                         <input
                           type="range"
                           min="0"
@@ -2753,7 +3194,7 @@ export default function ColorScaleEditor() {
                         <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMax}%</div>
                       </div>
                       <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (Dark)</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
                         <input
                           type="range"
                           min="0"
@@ -2776,7 +3217,7 @@ export default function ColorScaleEditor() {
                   }`}>
                     <div className="flex justify-between items-center mb-2">
                       <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Hue Shift
+                        Hue shift
                       </label>
                       <button
                         onClick={() => resetHueShift(cs.id)}
@@ -2791,7 +3232,7 @@ export default function ColorScaleEditor() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Light End</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Light end</label>
                         <input
                           type="range"
                           min="-180"
@@ -2803,7 +3244,7 @@ export default function ColorScaleEditor() {
                         <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftLight}°</div>
                       </div>
                       <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Dark End</label>
+                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Dark end</label>
                         <input
                           type="range"
                           min="-180"
@@ -2819,8 +3260,6 @@ export default function ColorScaleEditor() {
                       Rotate hue at extremes (e.g., shift yellow toward orange in darks)
                     </div>
                   </div>
-                  </div>
-
                   {/* Custom Bezier */}
                   <div className="mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -2828,7 +3267,7 @@ export default function ColorScaleEditor() {
                         checked={cs.useCustomBezier}
                         onCheckedChange={() => toggleCustomBezier(cs.id)}
                       />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use Custom Bezier Curve</span>
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom bezier curve</span>
                     </label>
                   </div>
                   <div
@@ -2847,7 +3286,7 @@ export default function ColorScaleEditor() {
                     }`}>
                       <div className="flex justify-between items-center mb-3">
                         <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                          Custom Bezier Curve
+                          Custom bezier curve
                         </label>
                         <button
                           onClick={() => resetCustomBezier(cs.id)}
@@ -2857,7 +3296,7 @@ export default function ColorScaleEditor() {
                               : 'text-gray-400 hover:text-gray-200'
                           }`}
                         >
-                          Reset to Global
+                          Reset to global
                         </button>
                       </div>
                       <div className="flex gap-3">
@@ -2941,6 +3380,7 @@ export default function ColorScaleEditor() {
                         </div>
                       </div>
                     </div>
+                  </div>
                   </div>
 
                   {/* Swatch Grid */}
@@ -3064,7 +3504,7 @@ export default function ColorScaleEditor() {
             }}
             className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
           >
-            <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Add Color Families</h3>
+            <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Add color families</h3>
             <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
             </p>
@@ -3145,7 +3585,7 @@ export default function ColorScaleEditor() {
                   onClick={generateHarmoniousColors}
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
                 >
-                  Preview Colors
+                  Preview colors
                 </button>
               </div>
             </div>
@@ -3283,7 +3723,7 @@ export default function ColorScaleEditor() {
             onClick={addColorScale}
             className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
           >
-            + Add Color Scale
+            + Add color scale
           </button>
         </motion.div>
       </div>
