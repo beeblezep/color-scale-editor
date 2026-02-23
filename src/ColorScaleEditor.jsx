@@ -38,8 +38,6 @@ export default function ColorScaleEditor() {
   const [nextColorId, setNextColorId] = useState(1);
   const [comparisonLightSurface, setComparisonLightSurface] = useState(false);
   const [miniCanvasDragging, setMiniCanvasDragging] = useState({ id: null, point: null });
-  const [editingSwatch, setEditingSwatch] = useState({ scaleId: null, step: null });
-  const [hoveredSwatch, setHoveredSwatch] = useState({ scaleId: null, index: null });
   const [numSwatches, setNumSwatches] = useState(12); // Number of visible swatches (excluding white and black)
   const [harmonizingScale, setHarmonizingScale] = useState(null);
   const [previewColorsByFamily, setPreviewColorsByFamily] = useState(null); // Store preview colors grouped by family
@@ -57,6 +55,7 @@ export default function ColorScaleEditor() {
   const [dragState, setDragState] = useState(null); // For drag-to-change number inputs
   const [theme, setTheme] = useState('light'); // Theme mode: 'light' or 'dark'
   const [viewMode, setViewMode] = useState('default'); // View mode: 'default' or 'simple'
+  const [displayMode, setDisplayMode] = useState('color'); // Display mode: 'color' or 'luminance'
   const [contrastCheck, setContrastCheck] = useState('off'); // Contrast check: 'off', 'aa', or 'apca'
   const [contrastColor1, setContrastColor1] = useState('#ffffff'); // First custom contrast test color (default white)
   const [contrastColor2, setContrastColor2] = useState('#000000'); // Second custom contrast test color (default black)
@@ -1392,17 +1391,6 @@ export default function ColorScaleEditor() {
     });
   };
 
-  const toggleAllDesaturate = () => {
-    setDesaturatedScales(prev => {
-      // If all scales are already desaturated, clear the set
-      // Otherwise, add all scale IDs to the set
-      if (prev.size === colorScales.length) {
-        return new Set();
-      } else {
-        return new Set(colorScales.map(cs => cs.id));
-      }
-    });
-  };
 
   const toggleCustomBezier = (id) => {
     setColorScales(colorScales.map(cs =>
@@ -1865,12 +1853,12 @@ export default function ColorScaleEditor() {
 
   return (
     <Theme appearance={theme}>
-      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-white text-gray-800' : 'bg-black text-gray-200'}`}>
+      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-gray-50 text-gray-800' : 'bg-zinc-900 text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
         {/* Header with Title and Social Links */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex items-start justify-between">
           <div>
-            <h1 className={`text-7xl font-semiBold mb-2 font-fraunces ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Primitive color builder</h1>
+            <h1 className={`text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Primitive color builder</h1>
             <p className={theme === 'light' ? 'text-gray-500' : 'text-gray-500'}>Interactive bezier curve editor for perceptually uniform color scales</p>
           </div>
 
@@ -1902,49 +1890,93 @@ export default function ColorScaleEditor() {
           </div>
         </div>
 
+        {/* Action Buttons - Icon Only */}
+        <div className="flex justify-end items-center gap-3 mb-4">
+          <Tooltip content="Export as Figma Tokens JSON">
+            <button
+              onClick={exportToFigmaTokens}
+              className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
+                theme === 'light'
+                  ? 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-400'
+                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-blue-400 hover:border-zinc-600'
+              }`}
+              aria-label="Export as Figma Tokens JSON"
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>
+                download
+              </span>
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Copy shareable URL to clipboard">
+            <button
+              onClick={generateShareUrl}
+              className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
+                theme === 'light'
+                  ? 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-400'
+                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-purple-400 hover:border-zinc-600'
+              }`}
+              aria-label="Copy shareable URL to clipboard"
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>
+                share
+              </span>
+            </button>
+          </Tooltip>
+
+          {showCopiedMessage && (
+            <span className="text-xs text-green-500 font-medium animate-pulse">
+              Copied!
+            </span>
+          )}
+        </div>
+
         {/* Global Settings - Compact Input Controls */}
-        <div className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}>
+        <div className={`rounded-xl p-6 mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}>
           {/* Compact Controls Row */}
           <div className="flex flex-wrap items-center gap-6 mb-4">
             {/* Theme Toggle */}
             <div className="flex items-center gap-2">
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                Theme:
+                Theme
               </label>
-              <button
-                onClick={() => setTheme('light')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  theme === 'light'
-                    ? 'bg-blue-600 text-white'
-                    : theme === 'light'
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-                }`}
-              >
-                Light
-              </button>
-              <button
-                onClick={() => setTheme('dark')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  theme === 'dark'
-                    ? 'bg-blue-600 text-white'
-                    : theme === 'light'
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
-                }`}
-              >
-                Dark
-              </button>
+              <SegmentedControl.Root value={theme} onValueChange={setTheme} size="1">
+                <SegmentedControl.Item value="light">Light</SegmentedControl.Item>
+                <SegmentedControl.Item value="dark">Dark</SegmentedControl.Item>
+              </SegmentedControl.Root>
             </div>
 
             {/* View Mode Toggle */}
             <div className="flex items-center gap-2">
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                View:
+                View
               </label>
               <SegmentedControl.Root value={viewMode} onValueChange={setViewMode} size="1">
                 <SegmentedControl.Item value="default">Default</SegmentedControl.Item>
                 <SegmentedControl.Item value="simple">Simple</SegmentedControl.Item>
+              </SegmentedControl.Root>
+            </div>
+
+            {/* Display Mode Toggle */}
+            <div className="flex items-center gap-2">
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                Swatches
+              </label>
+              <SegmentedControl.Root
+                value={displayMode}
+                onValueChange={(value) => {
+                  setDisplayMode(value);
+                  // Update desaturatedScales based on display mode
+                  if (value === 'luminance') {
+                    setDesaturatedScales(new Set(colorScales.map(cs => cs.id)));
+                  } else {
+                    setDesaturatedScales(new Set());
+                  }
+                }}
+                size="1"
+              >
+                <SegmentedControl.Item value="color">Color</SegmentedControl.Item>
+                <SegmentedControl.Item value="luminance">Luminance</SegmentedControl.Item>
               </SegmentedControl.Root>
             </div>
 
@@ -1966,7 +1998,7 @@ export default function ColorScaleEditor() {
                 </div>
               }>
                 <label className={`text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                  Contrast:
+                  Contrast
                 </label>
               </Tooltip>
               <SegmentedControl.Root value={contrastCheck} onValueChange={setContrastCheck} size="1">
@@ -1987,7 +2019,7 @@ export default function ColorScaleEditor() {
                 className="flex items-center gap-2 overflow-hidden"
               >
                 <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                  Test Colors:
+                  Test Colors
                 </label>
                 <div className="flex items-center gap-1.5">
                   <Tooltip content="First text color to test (default: white)">
@@ -2020,7 +2052,7 @@ export default function ColorScaleEditor() {
                 onMouseDown={(e) => handleNumberDragStart(e, numSwatches, setNumSwatches, 4, 20, 1)}
                 title="Drag to change"
               >
-                Swatches:
+                Swatches
               </label>
               <input
                 type="number"
@@ -2043,7 +2075,7 @@ export default function ColorScaleEditor() {
                 onMouseDown={(e) => handleNumberDragStart(e, cp1.x, (v) => setCp1({ ...cp1, x: v }), 0, 1, 0.01)}
                 title="Drag to change X"
               >
-                P1:
+                P1
               </label>
               <input
                 type="number"
@@ -2079,7 +2111,7 @@ export default function ColorScaleEditor() {
                 onMouseDown={(e) => handleNumberDragStart(e, cp2.x, (v) => setCp2({ ...cp2, x: v }), 0, 1, 0.01)}
                 title="Drag to change X"
               >
-                P2:
+                P2
               </label>
               <input
                 type="number"
@@ -2123,7 +2155,7 @@ export default function ColorScaleEditor() {
                 onMouseDown={(e) => handleNumberDragStart(e, globalLstarMin, setGlobalLstarMin, 0, 95, 1)}
                 title="Drag to change Min"
               >
-                L* Range:
+                L* Range
               </label>
               <input
                 type="number"
@@ -2163,19 +2195,18 @@ export default function ColorScaleEditor() {
                 ↺
               </button>
             </div>
-          </div>
 
-          {/* Token Numbers & Export Row */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
+            {/* Token Naming */}
             <div className="flex items-center gap-3">
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                Token Naming:
+                Token Naming
               </label>
               <SegmentedControl.Root
                 value={useLightnessNumbering ? 'lightness' : 'sequential'}
                 onValueChange={(newValue) => {
                   setUseLightnessNumbering(newValue === 'lightness');
                 }}
+                size="1"
               >
                 <SegmentedControl.Item value="lightness">
                   Lightness
@@ -2222,45 +2253,6 @@ export default function ColorScaleEditor() {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Export & Share Buttons */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={exportToFigmaTokens}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>download</span>
-                Export tokens
-              </button>
-              <button
-                onClick={generateShareUrl}
-                className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>share</span>
-                Share palette
-              </button>
-              <button
-                onClick={toggleAllDesaturate}
-                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
-                  desaturatedScales.size === colorScales.length
-                    ? 'bg-gray-600 hover:bg-gray-700 text-white'
-                    : theme === 'light'
-                      ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                      : 'bg-zinc-700 hover:bg-zinc-600 text-gray-200'
-                }`}
-                title="Toggle luminance view for all scales"
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>
-                  {desaturatedScales.size === colorScales.length ? 'palette' : 'contrast'}
-                </span>
-                {desaturatedScales.size === colorScales.length ? 'Show colors' : 'Show luminance'}
-              </button>
-              {showCopiedMessage && (
-                <span className="text-xs text-green-500 font-medium animate-pulse">
-                  Copied!
-                </span>
-              )}
             </div>
           </div>
 
@@ -2465,20 +2457,17 @@ export default function ColorScaleEditor() {
                   ease: [0.4, 0, 0.2, 1]
                 }
               }}
-              className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+              className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}
             >
               {/* Always visible compact header */}
-              <div
-                onClick={() => viewMode === 'default' && toggleScaleExpanded(cs.id)}
-                className={`p-4 ${viewMode === 'default' ? 'cursor-pointer' : ''}`}
-              >
+              <div className="p-4">
                 {/* Token Prefix and Key Color - Compact */}
                 {viewMode === 'default' && (
                 <div className="flex items-center justify-between gap-3 mb-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Token:
+                        Token
                       </label>
                       <input
                         type="text"
@@ -2494,13 +2483,13 @@ export default function ColorScaleEditor() {
                     </div>
                     <div className="flex items-center gap-2">
                       <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Key:
+                        Key
                       </label>
                       <input
                         type="color"
                         value={cs.hex}
                         onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
-                        className={`w-8 h-8 rounded cursor-pointer ${
+                        className={`w-8 h-[26px] rounded cursor-pointer ${
                           theme === 'light'
                             ? 'border border-gray-300 bg-white'
                             : 'border border-zinc-700 bg-black'
@@ -2543,6 +2532,55 @@ export default function ColorScaleEditor() {
                       />
                       <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
                     </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer" title="Single color mode (hides scale controls)">
+                      <input
+                        type="checkbox"
+                        checked={cs.isSingleColor}
+                        onChange={() => toggleSingleColorMode(cs.id)}
+                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
+                          theme === 'light'
+                            ? 'border-gray-300 bg-white'
+                            : 'border-zinc-700 bg-black'
+                        }`}
+                      />
+                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Single</span>
+                    </label>
+                    {!cs.isSingleColor && (
+                      <div className="flex items-center gap-1">
+                        <label className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Swatches</label>
+                        <input
+                          type="number"
+                          value={cs.swatchCountOverride ?? numSwatches}
+                          onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
+                          min="1"
+                          max="20"
+                          className={`w-12 px-1 py-1 rounded text-xs ${
+                            theme === 'light'
+                              ? 'bg-white border border-gray-300 text-gray-900'
+                              : 'bg-black border border-zinc-700 text-gray-200'
+                          }`}
+                        />
+                        {cs.swatchCountOverride !== null && (
+                          <button
+                            onClick={() => clearSwatchCountOverride(cs.id)}
+                            className={`text-[10px] ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                            title="Reset to global setting"
+                          >
+                            ↺
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {!cs.isSingleColor && (
+                      <label className="flex items-center gap-1.5 cursor-pointer ml-2">
+                        <Switch
+                          checked={cs.showAdvancedSettings}
+                          onCheckedChange={() => toggleAdvancedSettings(cs.id)}
+                          className="scale-75"
+                        />
+                        <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Advanced</span>
+                      </label>
+                    )}
                     {colorScales.length > 1 && (
                       <div className="relative harmonize-dropdown-container">
                         <Tooltip content="Adjusts saturation and lightness to match another color while preserving hue. Creates cohesive palettes where colors have similar vibrancy and brightness.">
@@ -2647,6 +2685,312 @@ export default function ColorScaleEditor() {
                     </button>
                   </div>
                 </div>
+                )}
+
+                {/* Advanced Controls - Below Token/Key row, Above swatch scale */}
+                {viewMode === 'default' && !cs.isSingleColor && (
+                  <div
+                    className="overflow-hidden px-4"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      maxHeight: cs.showAdvancedSettings ? '3000px' : '0',
+                      opacity: cs.showAdvancedSettings ? 1 : 0,
+                      marginTop: cs.showAdvancedSettings ? '16px' : '0',
+                      marginBottom: cs.showAdvancedSettings ? '16px' : '0',
+                      transition: `all ${cs.showAdvancedSettings ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.showAdvancedSettings ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                    }}
+                  >
+                    <div className="mb-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Switch
+                          checked={cs.useCustomLstarRange}
+                          onCheckedChange={() => toggleCustomLstarRange(cs.id)}
+                        />
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom L* range</span>
+                      </label>
+                    </div>
+                    <div
+                      className="overflow-hidden"
+                      style={{
+                        maxHeight: cs.useCustomLstarRange ? '500px' : '0',
+                        opacity: cs.useCustomLstarRange ? 1 : 0,
+                        marginTop: cs.useCustomLstarRange ? '24px' : '0',
+                        transition: `all ${cs.useCustomLstarRange ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.useCustomLstarRange ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                      }}
+                    >
+                      <div className={`mb-4 rounded-lg p-3 ${
+                        theme === 'light'
+                          ? 'bg-gray-50 border border-gray-200'
+                          : 'bg-black border border-zinc-800'
+                      }`}>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                            Custom L* range (lightness limits)
+                          </label>
+                          <button
+                            onClick={() => resetLstarRange(cs.id)}
+                            className={`px-2 py-1 text-xs transition-colors ${
+                              theme === 'light'
+                                ? 'text-gray-600 hover:text-gray-900'
+                                : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
+                            <input
+                              type="range"
+                              min="5"
+                              max="100"
+                              value={cs.lstarMax}
+                              onChange={(e) => updateLstarRange(cs.id, 'max', e.target.value)}
+                              className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
+                            />
+                            <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMax}</div>
+                          </div>
+                          <div>
+                            <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="95"
+                              value={cs.lstarMin}
+                              onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
+                              className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
+                            />
+                            <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMin}</div>
+                          </div>
+                        </div>
+                        <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                          Override global L* range for this color scale (e.g., yellow works well at L* 20-90)
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`mb-4 rounded-lg p-3 ${
+                      theme === 'light'
+                        ? 'bg-gray-50 border border-gray-200'
+                        : 'bg-black border border-zinc-800'
+                    }`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                          Saturation range
+                        </label>
+                        <button
+                          onClick={() => resetSaturationRange(cs.id)}
+                          className={`px-2 py-1 text-xs transition-colors ${
+                            theme === 'light'
+                              ? 'text-gray-600 hover:text-gray-900'
+                              : 'text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={cs.saturationMax}
+                            onChange={(e) => updateSaturationRange(cs.id, 'max', e.target.value)}
+                            className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
+                          />
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMax}%</div>
+                        </div>
+                        <div>
+                          <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={cs.saturationMin}
+                            onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
+                            className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
+                          />
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMin}%</div>
+                        </div>
+                      </div>
+                      <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                        Percentage of base saturation to maintain (100% = full color, 0% = grayscale)
+                      </div>
+                    </div>
+                    <div className={`mb-4 rounded-lg p-3 ${
+                      theme === 'light'
+                        ? 'bg-gray-50 border border-gray-200'
+                        : 'bg-black border border-zinc-800'
+                    }`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                          Hue shift
+                        </label>
+                        <button
+                          onClick={() => resetHueShift(cs.id)}
+                          className={`px-2 py-1 text-xs transition-colors ${
+                            theme === 'light'
+                              ? 'text-gray-600 hover:text-gray-900'
+                              : 'text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Light end</label>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            value={cs.hueShiftLight}
+                            onChange={(e) => updateHueShift(cs.id, 'light', e.target.value)}
+                            className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
+                          />
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftLight}°</div>
+                        </div>
+                        <div>
+                          <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Dark end</label>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            value={cs.hueShiftDark}
+                            onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
+                            className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
+                          />
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftDark}°</div>
+                        </div>
+                      </div>
+                      <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                        Rotate hue at extremes (e.g., shift yellow toward orange in darks)
+                      </div>
+                    </div>
+                    {/* Custom Bezier */}
+                    <div className="mb-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Switch
+                          checked={cs.useCustomBezier}
+                          onCheckedChange={() => toggleCustomBezier(cs.id)}
+                        />
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom bezier curve</span>
+                      </label>
+                    </div>
+                    <div
+                      className="overflow-hidden"
+                      style={{
+                        maxHeight: cs.useCustomBezier ? '1000px' : '0',
+                        opacity: cs.useCustomBezier ? 1 : 0,
+                        marginTop: cs.useCustomBezier ? '24px' : '0',
+                        transition: `all ${cs.useCustomBezier ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.useCustomBezier ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                      }}
+                    >
+                      <div className={`mb-4 rounded-lg p-3 ${
+                        theme === 'light'
+                          ? 'bg-gray-50 border border-gray-200'
+                          : 'bg-black border border-zinc-800'
+                      }`}>
+                        <div className="flex justify-between items-center mb-3">
+                          <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                            Custom bezier curve
+                          </label>
+                          <button
+                            onClick={() => resetCustomBezier(cs.id)}
+                            className={`px-2 py-1 text-xs transition-colors ${
+                              theme === 'light'
+                                ? 'text-gray-600 hover:text-gray-900'
+                                : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                          >
+                            Reset to global
+                          </button>
+                        </div>
+                        <div className="flex gap-3">
+                          <div className="flex-shrink-0">
+                            <canvas
+                              ref={el => miniCanvasRefs.current[cs.id] = el}
+                              width="200"
+                              height="200"
+                              onMouseDown={(e) => handleMiniCanvasMouseDown(e, cs.id, cs.cp1, cs.cp2)}
+                              onMouseMove={(e) => handleMiniCanvasMouseMove(e, cs.id)}
+                              onMouseUp={handleMiniCanvasMouseUp}
+                              onMouseLeave={handleMiniCanvasMouseUp}
+                              className={`rounded cursor-crosshair ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-zinc-900'}`}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P1</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="number"
+                                    value={cs.cp1.x}
+                                    onChange={(e) => updateColorScaleBezier(cs.id, 'cp1', 'x', e.target.value)}
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                      theme === 'light'
+                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                    }`}
+                                  />
+                                  <input
+                                    type="number"
+                                    value={cs.cp1.y}
+                                    onChange={(e) => updateColorScaleBezier(cs.id, 'cp1', 'y', e.target.value)}
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                      theme === 'light'
+                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P2</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="number"
+                                    value={cs.cp2.x}
+                                    onChange={(e) => updateColorScaleBezier(cs.id, 'cp2', 'x', e.target.value)}
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                      theme === 'light'
+                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                    }`}
+                                  />
+                                  <input
+                                    type="number"
+                                    value={cs.cp2.y}
+                                    onChange={(e) => updateColorScaleBezier(cs.id, 'cp2', 'y', e.target.value)}
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                                      theme === 'light'
+                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 <div className="flex items-center gap-3">
@@ -2821,10 +3165,56 @@ export default function ColorScaleEditor() {
                                 </AnimatePresence>
                               </div>
                               {viewMode === 'default' && (
-                              <div className={`text-center text-[10px] leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                <div className="font-dm-mono">{v.hex.slice(1)}</div>
+                              <div className={`text-center text-[10px] leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'} relative`}>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    defaultValue={v.hex.slice(1)}
+                                    key={v.hex}
+                                    onBlur={(e) => {
+                                      const value = e.target.value.trim();
+                                      const hexValue = value.startsWith('#') ? value : `#${value}`;
+                                      if (/^#[0-9A-Fa-f]{6}$/.test(hexValue) || /^#[0-9A-Fa-f]{3}$/.test(hexValue)) {
+                                        // Only update if the value actually changed
+                                        if (hexValue.toLowerCase() !== v.hex.toLowerCase()) {
+                                          updateCustomSwatch(cs.id, v.step, hexValue);
+                                        }
+                                      } else {
+                                        e.target.value = v.hex.slice(1);
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.target.blur();
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`w-full px-1 py-0.5 rounded text-center font-dm-mono bg-transparent border border-transparent hover:border-current focus:outline-none focus:border-current ${
+                                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                                    }`}
+                                  />
+                                  {v.isCustom && (
+                                    <Tooltip content="Reset to generated value">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          resetCustomSwatch(cs.id, v.step);
+                                        }}
+                                        className={`absolute -right-2 top-1/2 -translate-y-1/2 text-[10px] ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                                        title="Reset to generated value"
+                                      >
+                                        ↺
+                                      </button>
+                                    </Tooltip>
+                                  )}
+                                </div>
                                 <div className="font-dm-mono">{v.step}</div>
-                                <div className="font-dm-mono">L* {parseFloat(v.lstar).toFixed(1)}</div>
+                                <div className="font-dm-mono">L* {(() => {
+                                  const rgb = hexToRgb(v.hex);
+                                  if (!rgb) return parseFloat(v.lstar).toFixed(1);
+                                  const lstar = rgbToLstar(rgb.r, rgb.g, rgb.b);
+                                  return lstar.toFixed(1);
+                                })()}</div>
                               </div>
                               )}
                             </div>
@@ -2832,22 +3222,6 @@ export default function ColorScaleEditor() {
                         })
                     )}
                   </div>
-
-                  {/* Quick actions */}
-                  {viewMode === 'default' && (
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <span
-                      className={`material-symbols-rounded ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
-                      style={{
-                        fontSize: '18px',
-                        transform: cs.isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: `transform ${cs.isExpanded ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.isExpanded ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                      }}
-                    >
-                      expand_more
-                    </span>
-                  </div>
-                  )}
                 </div>
               </div>
 
@@ -2865,52 +3239,6 @@ export default function ColorScaleEditor() {
                   {/* Divider */}
                   <div className={`border-t mb-4 ${theme === 'light' ? 'border-gray-200' : 'border-zinc-800'}`}></div>
 
-                  {/* Single Color Mode and Swatch Count Controls */}
-                  <div className="mb-4 flex gap-6 items-center">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={cs.isSingleColor}
-                        onChange={() => toggleSingleColorMode(cs.id)}
-                        className="w-4 h-4 cursor-pointer"
-                      />
-                      <span className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Single color mode</span>
-                      <span className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>(hides scale controls)</span>
-                    </label>
-
-                    <div
-                      className="overflow-hidden"
-                      style={{
-                        maxHeight: !cs.isSingleColor ? '80px' : '0',
-                        opacity: !cs.isSingleColor ? 1 : 0,
-                        transition: `all ${!cs.isSingleColor ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!cs.isSingleColor ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <label className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Swatches:</label>
-                        <input
-                          type="number"
-                          value={cs.swatchCountOverride ?? numSwatches}
-                          onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
-                          min="1"
-                          max="20"
-                          className={`w-16 px-2 py-1 rounded border text-sm ${
-                            theme === 'light'
-                              ? 'bg-white border-gray-300 text-gray-900'
-                              : 'bg-black border-zinc-700 text-gray-200'
-                          }`}
-                        />
-                        {cs.swatchCountOverride !== null && (
-                          <button
-                            onClick={() => clearSwatchCountOverride(cs.id)}
-                            className={`text-xs hover:underline ${theme === 'light' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-300'}`}
-                          >
-                            Use global ({numSwatches})
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Token Prefix and Key Color */}
                   <div className="mb-4 flex gap-4 items-start hidden">
@@ -2974,28 +3302,6 @@ export default function ColorScaleEditor() {
                           }`}
                           placeholder="#000000"
                         />
-                        <div className="relative group">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={cs.lockKeyColor}
-                              onChange={() => toggleLockKeyColor(cs.id)}
-                              className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                                theme === 'light'
-                                  ? 'border-gray-300 bg-white'
-                                  : 'border-zinc-700 bg-black'
-                              }`}
-                            />
-                            <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
-                          </label>
-                          <div className={`absolute left-0 top-full mt-1 px-2 py-1 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 pointer-events-none z-10 ${
-                            theme === 'light'
-                              ? 'bg-gray-800 text-white'
-                              : 'bg-zinc-800 text-white'
-                          }`}>
-                            Useful when exact brand color is needed
-                          </div>
-                        </div>
                         {colorScales.length > 1 && (
                           <div className="relative harmonize-dropdown-container">
                             <button
@@ -3070,420 +3376,6 @@ export default function ColorScaleEditor() {
                       transition: `all ${!cs.isSingleColor ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!cs.isSingleColor ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
                     }}
                   >
-                  {/* Advanced Settings Toggle */}
-                  <div className="mb-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Switch
-                        checked={cs.showAdvancedSettings}
-                        onCheckedChange={() => toggleAdvancedSettings(cs.id)}
-                      />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Show advanced settings</span>
-                    </label>
-                  </div>
-
-                  {/* Advanced Settings */}
-                  <div
-                    className="overflow-hidden"
-                    style={{
-                      maxHeight: cs.showAdvancedSettings ? '3000px' : '0',
-                      opacity: cs.showAdvancedSettings ? 1 : 0,
-                      marginTop: cs.showAdvancedSettings ? '24px' : '0',
-                      transition: `all ${cs.showAdvancedSettings ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.showAdvancedSettings ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                    }}
-                  >
-                  <div className="mb-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Switch
-                        checked={cs.useCustomLstarRange}
-                        onCheckedChange={() => toggleCustomLstarRange(cs.id)}
-                      />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom L* range</span>
-                    </label>
-                  </div>
-                  <div
-                    className="overflow-hidden"
-                    style={{
-                      maxHeight: cs.useCustomLstarRange ? '500px' : '0',
-                      opacity: cs.useCustomLstarRange ? 1 : 0,
-                      marginTop: cs.useCustomLstarRange ? '24px' : '0',
-                      transition: `all ${cs.useCustomLstarRange ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.useCustomLstarRange ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                    }}
-                  >
-                  <div className={`mb-4 rounded-lg p-3 ${
-                    theme === 'light'
-                      ? 'bg-gray-50 border border-gray-200'
-                      : 'bg-black border border-zinc-800'
-                  }`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Custom L* range (lightness limits)
-                      </label>
-                      <button
-                        onClick={() => resetLstarRange(cs.id)}
-                        className={`px-2 py-1 text-xs transition-colors ${
-                          theme === 'light'
-                            ? 'text-gray-600 hover:text-gray-900'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                      >
-                        Reset
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
-                        <input
-                          type="range"
-                          min="5"
-                          max="100"
-                          value={cs.lstarMax}
-                          onChange={(e) => updateLstarRange(cs.id, 'max', e.target.value)}
-                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
-                        />
-                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMax}</div>
-                      </div>
-                      <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="95"
-                          value={cs.lstarMin}
-                          onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
-                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
-                        />
-                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMin}</div>
-                      </div>
-                    </div>
-                    <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
-                      Override global L* range for this color scale (e.g., yellow works well at L* 20-90)
-                    </div>
-                  </div>
-                  </div>
-                  <div className={`mb-4 rounded-lg p-3 ${
-                    theme === 'light'
-                      ? 'bg-gray-50 border border-gray-200'
-                      : 'bg-black border border-zinc-800'
-                  }`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Saturation range
-                      </label>
-                      <button
-                        onClick={() => resetSaturationRange(cs.id)}
-                        className={`px-2 py-1 text-xs transition-colors ${
-                          theme === 'light'
-                            ? 'text-gray-600 hover:text-gray-900'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                      >
-                        Reset
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Max (light)</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={cs.saturationMax}
-                          onChange={(e) => updateSaturationRange(cs.id, 'max', e.target.value)}
-                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
-                        />
-                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMax}%</div>
-                      </div>
-                      <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={cs.saturationMin}
-                          onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
-                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
-                        />
-                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMin}%</div>
-                      </div>
-                    </div>
-                    <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
-                      Percentage of base saturation to maintain (100% = full color, 0% = grayscale)
-                    </div>
-                  </div>
-                  <div className={`mb-4 rounded-lg p-3 ${
-                    theme === 'light'
-                      ? 'bg-gray-50 border border-gray-200'
-                      : 'bg-black border border-zinc-800'
-                  }`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Hue shift
-                      </label>
-                      <button
-                        onClick={() => resetHueShift(cs.id)}
-                        className={`px-2 py-1 text-xs transition-colors ${
-                          theme === 'light'
-                            ? 'text-gray-600 hover:text-gray-900'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                      >
-                        Reset
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Light end</label>
-                        <input
-                          type="range"
-                          min="-180"
-                          max="180"
-                          value={cs.hueShiftLight}
-                          onChange={(e) => updateHueShift(cs.id, 'light', e.target.value)}
-                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
-                        />
-                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftLight}°</div>
-                      </div>
-                      <div>
-                        <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Dark end</label>
-                        <input
-                          type="range"
-                          min="-180"
-                          max="180"
-                          value={cs.hueShiftDark}
-                          onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
-                          className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
-                        />
-                        <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftDark}°</div>
-                      </div>
-                    </div>
-                    <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
-                      Rotate hue at extremes (e.g., shift yellow toward orange in darks)
-                    </div>
-                  </div>
-                  {/* Custom Bezier */}
-                  <div className="mb-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Switch
-                        checked={cs.useCustomBezier}
-                        onCheckedChange={() => toggleCustomBezier(cs.id)}
-                      />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom bezier curve</span>
-                    </label>
-                  </div>
-                  <div
-                    className="overflow-hidden"
-                    style={{
-                      maxHeight: cs.useCustomBezier ? '1000px' : '0',
-                      opacity: cs.useCustomBezier ? 1 : 0,
-                      marginTop: cs.useCustomBezier ? '24px' : '0',
-                      transition: `all ${cs.useCustomBezier ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${cs.useCustomBezier ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                    }}
-                  >
-                    <div className={`mb-4 rounded-lg p-3 ${
-                      theme === 'light'
-                        ? 'bg-gray-50 border border-gray-200'
-                        : 'bg-black border border-zinc-800'
-                    }`}>
-                      <div className="flex justify-between items-center mb-3">
-                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                          Custom bezier curve
-                        </label>
-                        <button
-                          onClick={() => resetCustomBezier(cs.id)}
-                          className={`px-2 py-1 text-xs transition-colors ${
-                            theme === 'light'
-                              ? 'text-gray-600 hover:text-gray-900'
-                              : 'text-gray-400 hover:text-gray-200'
-                          }`}
-                        >
-                          Reset to global
-                        </button>
-                      </div>
-                      <div className="flex gap-3">
-                        <div className="flex-shrink-0">
-                          <canvas
-                            ref={el => miniCanvasRefs.current[cs.id] = el}
-                            width="200"
-                            height="200"
-                            onMouseDown={(e) => handleMiniCanvasMouseDown(e, cs.id, cs.cp1, cs.cp2)}
-                            onMouseMove={(e) => handleMiniCanvasMouseMove(e, cs.id)}
-                            onMouseUp={handleMiniCanvasMouseUp}
-                            onMouseLeave={handleMiniCanvasMouseUp}
-                            className={`rounded cursor-crosshair ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-zinc-900'}`}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P1</label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="number"
-                                  value={cs.cp1.x}
-                                  onChange={(e) => updateColorScaleBezier(cs.id, 'cp1', 'x', e.target.value)}
-                                  min="0"
-                                  max="1"
-                                  step="0.01"
-                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                                    theme === 'light'
-                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
-                                  }`}
-                                />
-                                <input
-                                  type="number"
-                                  value={cs.cp1.y}
-                                  onChange={(e) => updateColorScaleBezier(cs.id, 'cp1', 'y', e.target.value)}
-                                  min="0"
-                                  max="1"
-                                  step="0.01"
-                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                                    theme === 'light'
-                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
-                                  }`}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P2</label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="number"
-                                  value={cs.cp2.x}
-                                  onChange={(e) => updateColorScaleBezier(cs.id, 'cp2', 'x', e.target.value)}
-                                  min="0"
-                                  max="1"
-                                  step="0.01"
-                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                                    theme === 'light'
-                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
-                                  }`}
-                                />
-                                <input
-                                  type="number"
-                                  value={cs.cp2.y}
-                                  onChange={(e) => updateColorScaleBezier(cs.id, 'cp2', 'y', e.target.value)}
-                                  min="0"
-                                  max="1"
-                                  step="0.01"
-                                  className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                                    theme === 'light'
-                                      ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                                      : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
-                                  }`}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  </div>
-
-                  {/* Swatch Grid */}
-                  <div className="grid grid-cols-6 gap-2 hidden">
-                    {scale.map((v, i) => {
-                      const isEditing = editingSwatch.scaleId === cs.id && editingSwatch.step === v.step;
-                      const isKeyColor = cs.lockKeyColor
-                        ? v.hex.toLowerCase() === cs.hex.toLowerCase()
-                        : i === keyColorIndex;
-                      const isLockedKeyColor = cs.lockKeyColor && isKeyColor;
-                      return (
-                        <div
-                          key={i}
-                          className={`rounded-md p-2 text-center relative transition-colors ${
-                            theme === 'light' ? 'bg-white' : 'bg-black'
-                          } ${
-                            isLockedKeyColor
-                              ? 'cursor-not-allowed'
-                              : theme === 'light'
-                                ? 'cursor-pointer hover:bg-gray-50'
-                                : 'cursor-pointer hover:bg-zinc-900'
-                          } ${
-                            isKeyColor
-                              ? 'border-2 border-blue-500 shadow-lg shadow-blue-500/50'
-                              : v.isCustom
-                              ? 'border-2 border-amber-500'
-                              : theme === 'light'
-                                ? 'border border-gray-300'
-                                : 'border border-zinc-800'
-                          }`}
-                          onClick={() => !isLockedKeyColor && setEditingSwatch({ scaleId: cs.id, step: v.step })}
-                          onMouseEnter={() => setHoveredSwatch({ scaleId: cs.id, index: i })}
-                          onMouseLeave={() => setHoveredSwatch({ scaleId: null, index: null })}
-                        >
-                          {isKeyColor && (
-                            <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-500 rounded flex items-center justify-center">
-                              <span className="material-symbols-rounded text-white text-[12px]">key</span>
-                            </div>
-                          )}
-                          {v.isCustom && (
-                            <div className="absolute -top-2 -left-2 w-5 h-5 bg-amber-500 rounded flex items-center justify-center">
-                              <span className="material-symbols-rounded text-black text-[12px]">edit</span>
-                            </div>
-                          )}
-                          {isEditing ? (
-                            <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-                              <div className={`text-xs mb-1 font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.name}-{v.step}</div>
-                              <input
-                                type="color"
-                                value={v.hex}
-                                onChange={(e) => updateCustomSwatch(cs.id, v.step, e.target.value)}
-                                className={`w-full h-6 rounded cursor-pointer ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}
-                              />
-                              <input
-                                type="text"
-                                value={v.hex}
-                                onChange={(e) => updateCustomSwatch(cs.id, v.step, e.target.value)}
-                                className={`w-full px-1 py-0.5 text-[10px] font-mono rounded focus:outline-none ${
-                                  theme === 'light'
-                                    ? 'bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-500'
-                                    : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
-                                }`}
-                              />
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => setEditingSwatch({ scaleId: null, step: null })}
-                                  className={`flex-1 px-1 py-0.5 rounded text-[9px] text-white ${
-                                    theme === 'light'
-                                      ? 'bg-gray-600 hover:bg-gray-700'
-                                      : 'bg-zinc-700 hover:bg-zinc-600'
-                                  }`}
-                                >
-                                  Done
-                                </button>
-                                {v.isCustom && (
-                                  <button
-                                    onClick={() => {
-                                      resetCustomSwatch(cs.id, v.step);
-                                      setEditingSwatch({ scaleId: null, step: null });
-                                    }}
-                                    className="flex-1 px-1 py-0.5 bg-amber-600 hover:bg-amber-700 rounded text-[9px] text-white"
-                                  >
-                                    Reset
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className={`text-xs mb-1 font-mono flex items-center justify-center gap-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                                {cs.name}-{v.step}
-                                {cs.lockKeyColor && isKeyColor && (
-                                  <span className="material-symbols-rounded text-blue-400 text-[12px]">lock</span>
-                                )}
-                              </div>
-                              <div className={`text-xs font-mono mb-0.5 ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{v.hex}</div>
-                              <div className={`text-[10px] ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>L* {v.lstar}</div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
                   </div>
                 </div>
               </div>
