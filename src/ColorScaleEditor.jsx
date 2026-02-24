@@ -2748,7 +2748,6 @@ export default function ColorScaleEditor() {
               }}
               exit={{
                 opacity: 0,
-                y: -20,
                 transition: {
                   duration: motionPresets.accordionExit.duration / 1000,
                   ease: [0.4, 0, 1, 1] // accelerate
@@ -3726,15 +3725,8 @@ export default function ColorScaleEditor() {
         </AnimatePresence>
 
         {/* Add color scale and Add color families buttons */}
-        <motion.div
+        <div
           ref={addColorScaleButtonRef}
-          layout
-          transition={{
-            layout: {
-              duration: motionPresets.accordionEnter.duration / 1000,
-              ease: [0, 0, 0.2, 1]
-            }
-          }}
           className="flex gap-3 items-center mb-6"
         >
           <button
@@ -3778,7 +3770,7 @@ export default function ColorScaleEditor() {
               </button>
             )
           )}
-        </motion.div>
+        </div>
 
         <AnimatePresence mode="wait">
           {colorScales.length > 0 && showColorFamilies && (
