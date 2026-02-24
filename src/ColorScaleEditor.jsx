@@ -2878,24 +2878,24 @@ export default function ColorScaleEditor() {
                       )}
                       {colorScales.length > 1 && (
                         <div className="relative harmonize-dropdown-container">
-                          <Tooltip content="Adjusts saturation and lightness to match another color while preserving hue. Creates cohesive palettes where colors have similar vibrancy and brightness.">
-                            <button
-                              onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
-                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                theme === 'light'
-                                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                                  : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
-                              }`}
-                            >
-                              Harmonize...
-                            </button>
-                          </Tooltip>
+                          <button
+                            onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
+                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                              theme === 'light'
+                                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                            }`}
+                          >
+                            Harmonize...
+                          </button>
                           <div
-                            className="overflow-hidden absolute top-full left-0 z-50"
+                            className={`overflow-hidden absolute left-0 z-50 ${
+                              scaleIndex >= colorScales.length - 2 ? 'bottom-full' : 'top-full'
+                            }`}
                             style={{
-                              maxHeight: harmonizingScale === cs.id ? '400px' : '0',
+                              maxHeight: harmonizingScale === cs.id ? '280px' : '0',
                               opacity: harmonizingScale === cs.id ? 1 : 0,
-                              marginTop: harmonizingScale === cs.id ? '8px' : '0',
+                              [scaleIndex >= colorScales.length - 2 ? 'marginBottom' : 'marginTop']: harmonizingScale === cs.id ? '8px' : '0',
                               transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
                             }}
                           >
@@ -2905,7 +2905,7 @@ export default function ColorScaleEditor() {
                                 : 'bg-zinc-900 border border-zinc-700'
                             }`}>
                               <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
-                              <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto">
+                              <div className="flex flex-col gap-3 max-h-[240px] overflow-y-auto">
                                 {/* Revert button - show if color was harmonized */}
                                 {cs.preHarmonizeHex && (
                                   <button
@@ -3435,7 +3435,7 @@ export default function ColorScaleEditor() {
                               >
                                 {isKeyColor && viewMode === 'default' && (
                                   <span
-                                    className={`material-symbols-rounded absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[14px] ${textColor}`}
+                                    className={`material-symbols-rounded absolute bottom-1 left-1/2 -translate-x-1/2 text-[14px] ${textColor}`}
                                     style={{ opacity: 0.5, fontVariationSettings: "'FILL' 1" }}
                                   >
                                     {cs.lockKeyColor ? 'lock' : 'key'}
@@ -3651,11 +3651,13 @@ export default function ColorScaleEditor() {
                               Harmonize
                             </button>
                             <div
-                              className="overflow-hidden absolute top-full left-0"
+                              className={`overflow-hidden absolute left-0 ${
+                                scaleIndex >= colorScales.length - 2 ? 'bottom-full' : 'top-full'
+                              }`}
                               style={{
-                                maxHeight: harmonizingScale === cs.id ? '400px' : '0',
+                                maxHeight: harmonizingScale === cs.id ? '280px' : '0',
                                 opacity: harmonizingScale === cs.id ? 1 : 0,
-                                marginTop: harmonizingScale === cs.id ? '8px' : '0',
+                                [scaleIndex >= colorScales.length - 2 ? 'marginBottom' : 'marginTop']: harmonizingScale === cs.id ? '8px' : '0',
                                 transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
                               }}
                             >
@@ -3665,7 +3667,7 @@ export default function ColorScaleEditor() {
                                   : 'bg-zinc-800 border border-zinc-700'
                               }`}>
                                 <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
-                                <div className="space-y-1">
+                                <div className="space-y-1 max-h-[240px] overflow-y-auto">
                                   {colorScales
                                     .filter(otherCs => otherCs.id !== cs.id)
                                     .map(otherCs => (
