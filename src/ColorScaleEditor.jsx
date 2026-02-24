@@ -71,6 +71,9 @@ export default function ColorScaleEditor() {
   const [contrastColor1, setContrastColor1] = useState('#ffffff'); // First custom contrast test color (default white)
   const [contrastColor2, setContrastColor2] = useState('#000000'); // Second custom contrast test color (default black)
   const miniCanvasRefs = useRef({});
+  const colorFamiliesPanelRef = useRef(null);
+  const previewPanelRef = useRef(null);
+  const addColorScaleButtonRef = useRef(null);
 
   const steps = numSwatches + 2; // Pure white + swatches + pure black
 
@@ -414,6 +417,41 @@ export default function ColorScaleEditor() {
     }
 
     return { h: h * 360, s, l };
+  };
+
+  // Check if any color scale has saturation >= 1%
+  const hasAnySaturatedColors = () => {
+    // Early return if no color scales exist
+    if (!colorScales || colorScales.length === 0) {
+      return false;
+    }
+
+    // Iterate through all color scales
+    for (const scale of colorScales) {
+      // Skip if hex is invalid or missing
+      if (!scale.hex) {
+        continue;
+      }
+
+      // Convert hex to RGB
+      const rgb = hexToRgb(scale.hex);
+
+      // Skip if conversion failed
+      if (!rgb) {
+        continue;
+      }
+
+      // Convert RGB to HSL
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+      // Check if saturation is >= 0.01 (1% on 0-1 scale)
+      if (hsl.s >= 0.01) {
+        return true;
+      }
+    }
+
+    // No saturated colors found
+    return false;
   };
 
   // HSL to RGB
@@ -1299,11 +1337,13 @@ export default function ColorScaleEditor() {
     setPreviewColorsByFamily(null);
     setSelectedPreviews(new Set());
     setSelectedHarmoniousFamilies(new Set()); // Clear selected families
+    setShowColorFamilies(false); // Close the color families section
   };
 
   const cancelPreview = () => {
     setPreviewColorsByFamily(null);
     setSelectedPreviews(new Set());
+    setShowColorFamilies(false);
   };
 
   const togglePreviewSelection = (family, optionIndex) => {
@@ -1503,6 +1543,14 @@ export default function ColorScaleEditor() {
     };
     setColorScales([...colorScales, newScale]);
     setNextColorId(nextColorId + 1);
+
+    // Scroll to show the Add color scale button
+    setTimeout(() => {
+      addColorScaleButtonRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 50);
   };
 
   const removeColorScale = (id) => {
@@ -1955,6 +2003,30 @@ export default function ColorScaleEditor() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [harmonizingScale]);
 
+  // Scroll color families panel into view when opened
+  useEffect(() => {
+    if (showColorFamilies && colorFamiliesPanelRef.current) {
+      setTimeout(() => {
+        colorFamiliesPanelRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 350); // Wait for accordion animation to complete (320ms)
+    }
+  }, [showColorFamilies]);
+
+  // Scroll preview panel into view when it appears
+  useEffect(() => {
+    if (previewColorsByFamily && !isGenerating && previewPanelRef.current) {
+      setTimeout(() => {
+        previewPanelRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100); // Small delay to allow animation to start
+    }
+  }, [previewColorsByFamily, isGenerating]);
+
   // Export to Figma Tokens format
   const exportToFigmaTokens = () => {
     const tokens = {
@@ -2402,10 +2474,10 @@ export default function ColorScaleEditor() {
               </button>
             </div>
 
-            {/* Token Naming */}
+            {/* Token Numbering */}
             <div className="flex items-center gap-3">
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                Token Naming
+                Token numbering
               </label>
               <SegmentedControl.Root
                 value={useLightnessNumbering ? 'lightness' : 'sequential'}
@@ -3655,6 +3727,7 @@ export default function ColorScaleEditor() {
 
         {/* Add color scale and Add color families buttons */}
         <motion.div
+          ref={addColorScaleButtonRef}
           layout
           transition={{
             layout: {
@@ -3671,16 +3744,39 @@ export default function ColorScaleEditor() {
             + Add color scale
           </button>
           {colorScales.length > 0 && (
-            <button
-              onClick={() => setShowColorFamilies(!showColorFamilies)}
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                theme === 'light'
-                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                  : 'bg-zinc-800 hover:bg-zinc-700 text-gray-200'
-              }`}
-            >
-              {showColorFamilies ? '− Close families' : '+ Add color families'}
-            </button>
+            !hasAnySaturatedColors() ? (
+              <Tooltip content="Add a color with at least some saturation to add a color family">
+                <button
+                  disabled={true}
+                  className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                    theme === 'light'
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed opacity-50'
+                      : 'bg-zinc-800 text-gray-500 cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  <span className="material-symbols-rounded text-[16px]">expand_more</span>
+                  Add color families
+                </button>
+              </Tooltip>
+            ) : (
+              <button
+                onClick={() => setShowColorFamilies(!showColorFamilies)}
+                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  theme === 'light'
+                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-gray-200'
+                }`}
+                aria-expanded={showColorFamilies}
+                aria-controls="color-families-panel"
+              >
+                <span className={`material-symbols-rounded text-[16px] transition-transform ${
+                  showColorFamilies ? 'rotate-180' : ''
+                }`}>
+                  expand_more
+                </span>
+                Add color families
+              </button>
+            )
           )}
         </motion.div>
 
@@ -3688,6 +3784,7 @@ export default function ColorScaleEditor() {
           {colorScales.length > 0 && showColorFamilies && (
             <motion.div
               key="color-families"
+              ref={colorFamiliesPanelRef}
               layout
               initial={{
                 opacity: 0,
@@ -3713,8 +3810,26 @@ export default function ColorScaleEditor() {
                 }
               }}
               className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+              id="color-families-panel"
+              role="region"
+              aria-labelledby="color-families-heading"
             >
-            <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Add color families</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 id="color-families-heading" className={`text-lg font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                Add color families
+              </h3>
+              <button
+                onClick={() => setShowColorFamilies(false)}
+                className={`p-1 rounded hover:bg-opacity-10 transition-colors ${
+                  theme === 'light'
+                    ? 'hover:bg-gray-900 text-gray-600 hover:text-gray-900'
+                    : 'hover:bg-white text-gray-400 hover:text-gray-200'
+                }`}
+                aria-label="Close color families panel"
+              >
+                <span className="material-symbols-rounded text-[20px]">close</span>
+              </button>
+            </div>
             <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
             </p>
@@ -3837,6 +3952,7 @@ export default function ColorScaleEditor() {
 
             {/* Preview Area */}
             <div
+              ref={previewPanelRef}
               className="overflow-hidden"
               style={{
                 maxHeight: !isGenerating && previewColorsByFamily ? '2000px' : '0',
