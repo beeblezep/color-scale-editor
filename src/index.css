@@ -34,3 +34,33 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Override Radix UI accent color to use darker gray */
+.radix-themes {
+  --accent-9: #1c1c1c !important;
+  --accent-10: #000000 !important;
+  --accent-11: #1c1c1c !important;
+  --accent-12: #000000 !important;
+  --gray-9: #1c1c1c !important;
+  --gray-10: #000000 !important;
+  --gray-11: #1c1c1c !important;
+  --gray-12: #000000 !important;
+}
+
+/* Target the Switch thumb (the sliding button part) when checked */
+.rt-SwitchThumb[data-state="checked"] {
+  background-color: #1c1c1c !important;
+}
+
+/* Target checkbox with maximum specificity */
+.radix-themes button.rt-CheckboxButton[data-state="checked"][data-accent-color="gray"],
+.radix-themes .rt-CheckboxButton[data-state="checked"],
+button.rt-reset.rt-CheckboxButton[data-state="checked"] {
+  background-color: #1c1c1c !important;
+  border-color: #1c1c1c !important;
+}
+
+/* Don't apply to unchecked state */
+button.rt-CheckboxButton[data-state="unchecked"] {
+  background-color: transparent !important;
+}

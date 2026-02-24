@@ -8,7 +8,7 @@ export default function ColorScaleEditor() {
   const [cp1, setCp1] = useState({ x: 0.33, y: 0.00 });
   const [cp2, setCp2] = useState({ x: 0.50, y: 0.60 });
   const [dragging, setDragging] = useState(null);
-  const [globalLstarMin, setGlobalLstarMin] = useState(10);
+  const [globalLstarMin, setGlobalLstarMin] = useState(5);
   const [globalLstarMax, setGlobalLstarMax] = useState(98);
   const [colorScales, setColorScales] = useState([
     {
@@ -282,7 +282,7 @@ export default function ColorScaleEditor() {
     // Dark mode: light tooltip bg, needs dark text
     const headingClass = currentTheme === 'light' ? 'text-white' : 'text-gray-900';
     const subheadingClass = currentTheme === 'light' ? 'text-gray-100' : 'text-gray-800';
-    const passClass = currentTheme === 'light' ? 'text-green-300' : 'text-green-700';
+    const passClass = currentTheme === 'light' ? 'text-emerald-300' : 'text-emerald-700';
     const failClass = currentTheme === 'light' ? 'text-gray-400' : 'text-gray-500';
 
     const colorName = getColorName(textColor);
@@ -341,7 +341,7 @@ export default function ColorScaleEditor() {
             <div className={`text-xs font-medium mb-1 ${subheadingClass}`}>Use for:</div>
             <div className="flex flex-wrap gap-1">
               {useFor.map(t => (
-                <span key={t.label} className="text-[10px] px-1.5 py-0.5 rounded bg-green-600 text-white">
+                <span key={t.label} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-700 text-white">
                   {t.label} (Lc {t.value})
                 </span>
               ))}
@@ -761,7 +761,7 @@ export default function ColorScaleEditor() {
     ctx.setLineDash([]);
 
     // Bezier curve
-    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeStyle = '#a4a4a4';
     ctx.lineWidth = 3;
     ctx.beginPath();
     for (let i = 0; i <= 100; i++) {
@@ -796,11 +796,11 @@ export default function ColorScaleEditor() {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = '#a4a4a4';
     ctx.beginPath();
     ctx.arc(p1.x, p1.y, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#1e40af';
+    ctx.strokeStyle = '#757575';
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -819,7 +819,7 @@ export default function ColorScaleEditor() {
     ctx.fillText('Output (0-1)', -40, 0);
     ctx.restore();
 
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = '#a4a4a4';
     ctx.font = '14px monospace';
     ctx.fillText(`P1 (${cp1.x.toFixed(2)}, ${cp1.y.toFixed(2)})`, p1.x + 15, p1.y - 10);
     ctx.fillText(`P2 (${cp2.x.toFixed(2)}, ${cp2.y.toFixed(2)})`, p2.x + 15, p2.y - 10);
@@ -1463,7 +1463,7 @@ export default function ColorScaleEditor() {
       purple: '#a855f7',
       violet: '#8b5cf6',
       indigo: '#6366f1',
-      blue: '#3b82f6',
+      blue: '#a4a4a4',
       sky: '#0ea5e9',
       cyan: '#06b6d4',
       teal: '#14b8a6',
@@ -1811,6 +1811,84 @@ export default function ColorScaleEditor() {
     }));
   };
 
+  // Import Figma Tokens JSON
+  const importFigmaTokens = (jsonContent) => {
+    try {
+      const parsed = typeof jsonContent === 'string' ? JSON.parse(jsonContent) : jsonContent;
+      const colorData = parsed.color;
+
+      if (!colorData) {
+        console.error('No color data found in JSON');
+        return;
+      }
+
+      const newScales = [];
+      const nextId = colorScales.length > 0 ? Math.max(...colorScales.map(cs => cs.id)) + 1 : 0;
+
+      Object.entries(colorData).forEach(([colorName, swatches], index) => {
+        // Get all swatch entries and calculate their L* values
+        const swatchEntries = Object.entries(swatches)
+          .map(([step, data]) => {
+            const rgb = hexToRgb(data.value);
+            const lstar = rgbToLstar(rgb.r, rgb.g, rgb.b);
+            return {
+              step: parseInt(step),
+              hex: data.value,
+              lstar: lstar
+            };
+          })
+          // Sort by L* value descending (lightest first)
+          .sort((a, b) => b.lstar - a.lstar);
+
+        // Use the middle swatch as the base color (or find 600/700 in original step numbers)
+        const baseSwatchIndex = swatchEntries.findIndex(s => s.step === 600 || s.step === 700);
+        const baseHex = baseSwatchIndex !== -1
+          ? swatchEntries[baseSwatchIndex].hex
+          : swatchEntries[Math.floor(swatchEntries.length / 2)].hex;
+
+        // Create customSwatches object keyed by index (not step number)
+        // Sorted by L* so lightest imported color goes to lightest position
+        const customSwatches = {};
+        swatchEntries.forEach(({ hex }, index) => {
+          customSwatches[index] = hex;
+        });
+
+        // Determine swatch count (number of tokens)
+        const swatchCount = swatchEntries.length;
+
+        // Create new color scale
+        const newScale = {
+          id: nextId + index,
+          name: colorName,
+          hex: baseHex,
+          isSingleColor: false,
+          lockKeyColor: false,
+          swatchCountOverride: swatchCount,
+          useCustomLstarRange: false,
+          lstarMin: 10,
+          lstarMax: 98,
+          desaturate: colorName.includes('gray') || colorName.includes('neutral'),
+          saturationMultiplier: 1.0,
+          hueShiftDark: 0,
+          hueShiftLight: 0,
+          customSwatches: customSwatches,
+          cp1: { x: 0.33, y: 0.00 },
+          cp2: { x: 0.50, y: 0.60 },
+          preHarmonizeHex: null,
+          includeAnchors: false
+        };
+
+        newScales.push(newScale);
+      });
+
+      // Add new scales to state
+      setColorScales([...colorScales, ...newScales]);
+
+    } catch (error) {
+      console.error('Error importing Figma Tokens:', error);
+    }
+  };
+
   // Find the closest swatch to the key color
   const findKeyColorIndex = (scale, keyHex) => {
     const keyRgb = hexToRgb(keyHex);
@@ -1868,7 +1946,7 @@ export default function ColorScaleEditor() {
     }
 
     // Bezier curve
-    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeStyle = '#a4a4a4';
     ctx.lineWidth = 2;
     ctx.beginPath();
     for (let i = 0; i <= 50; i++) {
@@ -1903,8 +1981,8 @@ export default function ColorScaleEditor() {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = '#3b82f6';
-    ctx.strokeStyle = '#1e40af';
+    ctx.fillStyle = '#a4a4a4';
+    ctx.strokeStyle = '#757575';
     ctx.lineWidth = 2;
 
     [p1, p2].forEach(point => {
@@ -2093,17 +2171,6 @@ export default function ColorScaleEditor() {
           };
         }
 
-        // Apply custom swatches
-        scale.forEach((swatch, i) => {
-          if (cs.customSwatches[swatch.step]) {
-            scale[i] = {
-              ...swatch,
-              hex: cs.customSwatches[swatch.step],
-              isCustom: true
-            };
-          }
-        });
-
         // Remove white and black anchors (unless includeAnchors is enabled) and apply numbering
         scale = (() => {
           const sliced = cs.includeAnchors ? scale : scale.slice(1, -1);
@@ -2114,6 +2181,17 @@ export default function ColorScaleEditor() {
           const steps = calculateStepFromLstar(lstarValues, useLightnessNumbering, lstarMin, lstarMax, increment);
           return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
         })();
+
+        // Apply custom swatches AFTER slicing (keyed by index, not step)
+        scale.forEach((swatch, i) => {
+          if (cs.customSwatches[i]) {
+            scale[i] = {
+              ...swatch,
+              hex: cs.customSwatches[i],
+              isCustom: true
+            };
+          }
+        });
 
         tokens.color[cs.name] = {};
         scale.forEach(swatch => {
@@ -2139,14 +2217,14 @@ export default function ColorScaleEditor() {
   };
 
   return (
-    <Theme appearance={theme}>
-      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-gray-50 text-gray-800' : 'bg-zinc-900 text-gray-200'}`}>
+    <Theme appearance={theme} accentColor="gray">
+      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-warm-gray-100 text-neutral-1100' : 'bg-warm-gray-1100 text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
         {/* Header with Title and Social Links */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className={`text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Primitive color builder</h1>
-            <p className={theme === 'light' ? 'text-gray-500' : 'text-gray-500'}>Interactive bezier curve editor for perceptually uniform color scales</p>
+            <h1 className={`text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>Primitive color builder</h1>
+            <p className={theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}>Interactive bezier curve editor for perceptually uniform color scales</p>
           </div>
 
           {/* Social Media Links */}
@@ -2155,7 +2233,7 @@ export default function ColorScaleEditor() {
               href="https://github.com/beeblezep/color-scale-editor"
               target="_blank"
               rel="noopener noreferrer"
-              className={`transition-opacity hover:opacity-70 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}
+              className={`transition-opacity hover:opacity-70 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}
               aria-label="GitHub Repository"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -2167,7 +2245,7 @@ export default function ColorScaleEditor() {
               href="https://www.linkedin.com/in/craigmertan/"
               target="_blank"
               rel="noopener noreferrer"
-              className={`transition-opacity hover:opacity-70 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}
+              className={`transition-opacity hover:opacity-70 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}
               aria-label="LinkedIn Profile"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -2184,8 +2262,8 @@ export default function ColorScaleEditor() {
               onClick={exportToFigmaTokens}
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
-                  ? 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-400'
-                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-blue-400 hover:border-zinc-600'
+                  ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
+                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-neutral-600 hover:border-zinc-600'
               }`}
               aria-label="Export as Figma Tokens JSON"
             >
@@ -2200,8 +2278,8 @@ export default function ColorScaleEditor() {
               onClick={generateShareUrl}
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
-                  ? 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-400'
-                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-purple-400 hover:border-zinc-600'
+                  ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
+                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-neutral-600 hover:border-zinc-600'
               }`}
               aria-label="Copy shareable URL to clipboard"
             >
@@ -2212,7 +2290,7 @@ export default function ColorScaleEditor() {
           </Tooltip>
 
           {showCopiedMessage && (
-            <span className="text-xs text-green-500 font-medium animate-pulse">
+            <span className="text-xs text-emerald-500 font-medium animate-pulse">
               Copied!
             </span>
           )}
@@ -2224,7 +2302,7 @@ export default function ColorScaleEditor() {
           <div className="flex flex-wrap items-center gap-6">
             {/* Theme Toggle */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Theme
               </label>
               <SegmentedControl.Root value={theme} onValueChange={setTheme} size="1">
@@ -2235,7 +2313,7 @@ export default function ColorScaleEditor() {
 
             {/* View Mode Toggle */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 View
               </label>
               <SegmentedControl.Root value={viewMode} onValueChange={setViewMode} size="1">
@@ -2246,7 +2324,7 @@ export default function ColorScaleEditor() {
 
             {/* Display Mode Toggle */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Swatches
               </label>
               <SegmentedControl.Root
@@ -2284,7 +2362,7 @@ export default function ColorScaleEditor() {
                   </div>
                 </div>
               }>
-                <label className={`text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                <label className={`text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Contrast
                 </label>
               </Tooltip>
@@ -2305,7 +2383,7 @@ export default function ColorScaleEditor() {
                 transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 className="flex items-center gap-2 overflow-hidden"
               >
-                <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Test Colors
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -2335,7 +2413,7 @@ export default function ColorScaleEditor() {
             {/* Swatches Count */}
             <div className="flex items-center gap-2">
               <label
-                className={`text-xs font-medium uppercase tracking-wider cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
+                className={`text-xs font-medium uppercase tracking-wider cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, numSwatches, setNumSwatches, 4, 20, 1)}
                 title="Drag to change"
               >
@@ -2349,7 +2427,7 @@ export default function ColorScaleEditor() {
                 max="20"
                 className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
               />
@@ -2358,7 +2436,7 @@ export default function ColorScaleEditor() {
             {/* Bezier Control Points - Compact */}
             <div className="flex items-center gap-2">
               <label
-                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
+                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, cp1.x, (v) => setCp1({ ...cp1, x: v }), 0, 1, 0.01)}
                 title="Drag to change X"
               >
@@ -2373,7 +2451,7 @@ export default function ColorScaleEditor() {
                 step="0.01"
                 className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
               />
@@ -2386,7 +2464,7 @@ export default function ColorScaleEditor() {
                 step="0.01"
                 className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
               />
@@ -2394,7 +2472,7 @@ export default function ColorScaleEditor() {
 
             <div className="flex items-center gap-2">
               <label
-                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
+                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, cp2.x, (v) => setCp2({ ...cp2, x: v }), 0, 1, 0.01)}
                 title="Drag to change X"
               >
@@ -2409,7 +2487,7 @@ export default function ColorScaleEditor() {
                 step="0.01"
                 className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
               />
@@ -2422,13 +2500,13 @@ export default function ColorScaleEditor() {
                 step="0.01"
                 className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
               />
               <button
                 onClick={resetBezierPoints}
-                className={`ml-1 text-xs ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                className={`ml-1 text-xs ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
                 title="Reset bezier points"
               >
                 ↺
@@ -2438,7 +2516,7 @@ export default function ColorScaleEditor() {
             {/* L* Range - Compact Number Inputs */}
             <div className="flex items-center gap-2">
               <label
-                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}
+                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, globalLstarMin, setGlobalLstarMin, 0, 95, 1)}
                 title="Drag to change Min"
               >
@@ -2452,12 +2530,12 @@ export default function ColorScaleEditor() {
                 max="95"
                 className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
                 placeholder="Min"
               />
-              <span className={theme === 'light' ? 'text-gray-400' : 'text-gray-600'}>–</span>
+              <span className={theme === 'light' ? 'text-neutral-600' : 'text-gray-600'}>–</span>
               <input
                 type="number"
                 value={globalLstarMax}
@@ -2466,7 +2544,7 @@ export default function ColorScaleEditor() {
                 max="100"
                 className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
                 }`}
                 placeholder="Max"
@@ -2476,7 +2554,7 @@ export default function ColorScaleEditor() {
                   setGlobalLstarMin(10);
                   setGlobalLstarMax(98);
                 }}
-                className={`ml-1 text-xs ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                className={`ml-1 text-xs ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
                 title="Reset L* range"
               >
                 ↺
@@ -2485,7 +2563,7 @@ export default function ColorScaleEditor() {
 
             {/* Token Numbering */}
             <div className="flex items-center gap-3">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Token numbering
               </label>
               <SegmentedControl.Root
@@ -2518,7 +2596,7 @@ export default function ColorScaleEditor() {
                       onCheckedChange={(checked) => setUseCustomIncrement(checked)}
                       size="1"
                     />
-                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Custom:</span>
+                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Custom:</span>
                   </label>
                   <input
                     type="number"
@@ -2529,7 +2607,7 @@ export default function ColorScaleEditor() {
                     max="1000"
                     className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
                       theme === 'light'
-                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                         : 'bg-black border border-zinc-700 focus:border-zinc-600'
                     } ${!useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
@@ -2544,7 +2622,7 @@ export default function ColorScaleEditor() {
                 onCheckedChange={() => setShowVisualControls(!showVisualControls)}
                 className="scale-75"
               />
-              <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Visual controls</span>
+              <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Visual controls</span>
             </label>
 
             {/* Swatch Borders */}
@@ -2554,12 +2632,12 @@ export default function ColorScaleEditor() {
                 onCheckedChange={setShowSwatchBorders}
                 className="scale-75"
               />
-              <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Swatch borders</span>
+              <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Swatch borders</span>
             </label>
 
             {/* Swatch Background Color */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+              <label className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Swatch BG
               </label>
               <input
@@ -2583,7 +2661,7 @@ export default function ColorScaleEditor() {
                 }}
                 className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
                 }`}
               />
@@ -2603,7 +2681,7 @@ export default function ColorScaleEditor() {
             <div className="pt-6 space-y-6">
               {/* L* Range Sliders */}
               <div>
-                <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Global L* Range (Visual Sliders)
                 </label>
                 <div className="grid grid-cols-2 gap-4">
@@ -2617,7 +2695,7 @@ export default function ColorScaleEditor() {
                       onChange={(e) => setGlobalLstarMax(parseInt(e.target.value))}
                       className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                     />
-                    <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {globalLstarMax}</div>
+                    <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>L* {globalLstarMax}</div>
                   </div>
                   <div>
                     <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
@@ -2629,14 +2707,14 @@ export default function ColorScaleEditor() {
                       onChange={(e) => setGlobalLstarMin(parseInt(e.target.value))}
                       className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                     />
-                    <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {globalLstarMin}</div>
+                    <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>L* {globalLstarMin}</div>
                   </div>
                 </div>
               </div>
 
               {/* Bezier Curve Canvas */}
               <div>
-                <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Bezier Curve (Visual Editor)
                 </label>
                 <canvas
@@ -2730,12 +2808,12 @@ export default function ColorScaleEditor() {
               return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
             })();
 
-            // Apply custom swatches AFTER renumbering
+            // Apply custom swatches AFTER renumbering (keyed by index, not step)
             scale.forEach((swatch, i) => {
-              if (cs.customSwatches[swatch.step]) {
+              if (cs.customSwatches[i]) {
                 scale[i] = {
                   ...swatch,
-                  hex: cs.customSwatches[swatch.step],
+                  hex: cs.customSwatches[i],
                   isCustom: true
                 };
               }
@@ -2780,7 +2858,7 @@ export default function ColorScaleEditor() {
                     {/* Left controls - wrap on all screens */}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <div className="flex items-center gap-2">
-                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                           Token
                         </label>
                         <input
@@ -2790,13 +2868,13 @@ export default function ColorScaleEditor() {
                           placeholder="color"
                           className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                             theme === 'light'
-                              ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                              ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                               : 'bg-black border border-zinc-700 focus:border-zinc-600'
                           }`}
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                           Key
                         </label>
                         <input
@@ -2828,7 +2906,7 @@ export default function ColorScaleEditor() {
                           }}
                           className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                             theme === 'light'
-                              ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                              ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                               : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
                           }`}
                         />
@@ -2839,7 +2917,7 @@ export default function ColorScaleEditor() {
                           onCheckedChange={() => toggleLockKeyColor(cs.id)}
                           size="1"
                         />
-                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Lock</span>
                       </label>
                       {!cs.isSingleColor && (
                         <Tooltip content="Include pure white and black swatches at the ends">
@@ -2849,7 +2927,7 @@ export default function ColorScaleEditor() {
                               onCheckedChange={() => toggleIncludeAnchors(cs.id)}
                               size="1"
                             />
-                            <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>W/B</span>
+                            <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>W/B</span>
                           </label>
                         </Tooltip>
                       )}
@@ -2859,11 +2937,11 @@ export default function ColorScaleEditor() {
                           onCheckedChange={() => toggleSingleColorMode(cs.id)}
                           size="1"
                         />
-                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Single</span>
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Single</span>
                       </label>
                       {!cs.isSingleColor && (
                         <div className="flex items-center gap-1">
-                          <label className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Swatches</label>
+                          <label className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Swatches</label>
                           <input
                             type="number"
                             value={cs.swatchCountOverride ?? numSwatches}
@@ -2879,7 +2957,7 @@ export default function ColorScaleEditor() {
                           {cs.swatchCountOverride !== null && (
                             <button
                               onClick={() => clearSwatchCountOverride(cs.id)}
-                              className={`text-[10px] ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                              className={`text-[10px] ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
                               title="Reset to global setting"
                             >
                               ↺
@@ -2894,7 +2972,7 @@ export default function ColorScaleEditor() {
                             onCheckedChange={() => toggleAdvancedSettings(cs.id)}
                             className="scale-75"
                           />
-                          <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Advanced</span>
+                          <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Advanced</span>
                         </label>
                       )}
                       {colorScales.length > 1 && (
@@ -2925,7 +3003,7 @@ export default function ColorScaleEditor() {
                                 ? 'bg-white border border-gray-300'
                                 : 'bg-zinc-900 border border-zinc-700'
                             }`}>
-                              <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
+                              <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Harmonize with:</div>
                               <div className="flex flex-col gap-3 max-h-[240px] overflow-y-auto">
                                 {/* Revert button - show if color was harmonized */}
                                 {cs.preHarmonizeHex && (
@@ -2958,7 +3036,7 @@ export default function ColorScaleEditor() {
 
                                     return (
                                       <div key={otherScale.id} className="flex flex-col gap-1">
-                                        <div className={`flex items-center gap-2 px-2 py-1 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                                        <div className={`flex items-center gap-2 px-2 py-1 ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
                                           <div
                                             className="w-3 h-3 rounded"
                                             style={{ background: otherScale.hex }}
@@ -3064,7 +3142,7 @@ export default function ColorScaleEditor() {
                           checked={cs.useCustomLstarRange}
                           onCheckedChange={() => toggleCustomLstarRange(cs.id)}
                         />
-                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom L* range</span>
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Use custom L* range</span>
                       </label>
                     </div>
                     <div
@@ -3078,11 +3156,11 @@ export default function ColorScaleEditor() {
                     >
                       <div className={`mb-4 rounded-lg p-3 ${
                         theme === 'light'
-                          ? 'bg-gray-50 border border-gray-200'
+                          ? 'bg-white border border-gray-200'
                           : 'bg-black border border-zinc-800'
                       }`}>
                         <div className="flex justify-between items-center mb-2">
-                          <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                          <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                             Custom L* range (lightness limits)
                           </label>
                           <button
@@ -3107,7 +3185,7 @@ export default function ColorScaleEditor() {
                               onChange={(e) => updateLstarRange(cs.id, 'max', e.target.value)}
                               className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                             />
-                            <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMax}</div>
+                            <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>L* {cs.lstarMax}</div>
                           </div>
                           <div>
                             <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
@@ -3119,21 +3197,21 @@ export default function ColorScaleEditor() {
                               onChange={(e) => updateLstarRange(cs.id, 'min', e.target.value)}
                               className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                             />
-                            <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>L* {cs.lstarMin}</div>
+                            <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>L* {cs.lstarMin}</div>
                           </div>
                         </div>
-                        <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                        <div className={`text-xs mt-2 ${theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}`}>
                           Override global L* range for this color scale (e.g., yellow works well at L* 20-90)
                         </div>
                       </div>
                     </div>
                     <div className={`mb-4 rounded-lg p-3 ${
                       theme === 'light'
-                        ? 'bg-gray-50 border border-gray-200'
+                        ? 'bg-white border border-gray-200'
                         : 'bg-black border border-zinc-800'
                     }`}>
                       <div className="flex justify-between items-center mb-2">
-                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                           Saturation range
                         </label>
                         <button
@@ -3158,7 +3236,7 @@ export default function ColorScaleEditor() {
                             onChange={(e) => updateSaturationRange(cs.id, 'max', e.target.value)}
                             className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                           />
-                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMax}%</div>
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{cs.saturationMax}%</div>
                         </div>
                         <div>
                           <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Min (dark)</label>
@@ -3170,20 +3248,20 @@ export default function ColorScaleEditor() {
                             onChange={(e) => updateSaturationRange(cs.id, 'min', e.target.value)}
                             className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                           />
-                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.saturationMin}%</div>
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{cs.saturationMin}%</div>
                         </div>
                       </div>
-                      <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                      <div className={`text-xs mt-2 ${theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}`}>
                         Percentage of base saturation to maintain (100% = full color, 0% = grayscale)
                       </div>
                     </div>
                     <div className={`mb-4 rounded-lg p-3 ${
                       theme === 'light'
-                        ? 'bg-gray-50 border border-gray-200'
+                        ? 'bg-white border border-gray-200'
                         : 'bg-black border border-zinc-800'
                     }`}>
                       <div className="flex justify-between items-center mb-2">
-                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                           Hue shift
                         </label>
                         <button
@@ -3208,7 +3286,7 @@ export default function ColorScaleEditor() {
                             onChange={(e) => updateHueShift(cs.id, 'light', e.target.value)}
                             className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                           />
-                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftLight}°</div>
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{cs.hueShiftLight}°</div>
                         </div>
                         <div>
                           <label className={`block text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-600'}`}>Dark end</label>
@@ -3220,10 +3298,10 @@ export default function ColorScaleEditor() {
                             onChange={(e) => updateHueShift(cs.id, 'dark', e.target.value)}
                             className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${theme === 'light' ? 'bg-gray-300' : 'bg-zinc-700'}`}
                           />
-                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{cs.hueShiftDark}°</div>
+                          <div className={`text-xs font-mono mt-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{cs.hueShiftDark}°</div>
                         </div>
                       </div>
-                      <div className={`text-xs mt-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                      <div className={`text-xs mt-2 ${theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}`}>
                         Rotate hue at extremes (e.g., shift yellow toward orange in darks)
                       </div>
                     </div>
@@ -3234,7 +3312,7 @@ export default function ColorScaleEditor() {
                           checked={cs.useCustomBezier}
                           onCheckedChange={() => toggleCustomBezier(cs.id)}
                         />
-                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Use custom bezier curve</span>
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Use custom bezier curve</span>
                       </label>
                     </div>
                     <div
@@ -3248,11 +3326,11 @@ export default function ColorScaleEditor() {
                     >
                       <div className={`mb-4 rounded-lg p-3 ${
                         theme === 'light'
-                          ? 'bg-gray-50 border border-gray-200'
+                          ? 'bg-white border border-gray-200'
                           : 'bg-black border border-zinc-800'
                       }`}>
                         <div className="flex justify-between items-center mb-3">
-                          <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                          <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                             Custom bezier curve
                           </label>
                           <button
@@ -3282,7 +3360,7 @@ export default function ColorScaleEditor() {
                           <div className="flex-1">
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P1</label>
+                                <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>P1</label>
                                 <div className="flex gap-2">
                                   <input
                                     type="number"
@@ -3293,7 +3371,7 @@ export default function ColorScaleEditor() {
                                     step="0.01"
                                     className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                                       theme === 'light'
-                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                                         : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
                                     }`}
                                   />
@@ -3306,14 +3384,14 @@ export default function ColorScaleEditor() {
                                     step="0.01"
                                     className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                                       theme === 'light'
-                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                                         : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
                                     }`}
                                   />
                                 </div>
                               </div>
                               <div>
-                                <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>P2</label>
+                                <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>P2</label>
                                 <div className="flex gap-2">
                                   <input
                                     type="number"
@@ -3324,7 +3402,7 @@ export default function ColorScaleEditor() {
                                     step="0.01"
                                     className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                                       theme === 'light'
-                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                                         : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
                                     }`}
                                   />
@@ -3337,7 +3415,7 @@ export default function ColorScaleEditor() {
                                     step="0.01"
                                     className={`w-full px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                                       theme === 'light'
-                                        ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                                         : 'bg-zinc-900 border border-zinc-700 focus:border-zinc-600'
                                     }`}
                                   />
@@ -3431,7 +3509,7 @@ export default function ColorScaleEditor() {
                           </AnimatePresence>
                         </div>
                         {viewMode === 'default' && (
-                        <div className={`text-center text-xs font-dm-mono italic leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                        <div className={`text-center text-xs font-dm-mono italic leading-tight ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
                           <div>{cs.hex.slice(1)}</div>
                           <div className="font-mono not-italic">L* {parseFloat(cs.lstar).toFixed(1)}</div>
                         </div>
@@ -3441,7 +3519,7 @@ export default function ColorScaleEditor() {
                       // Scale: show all swatches with hex on swatch, step and L* below
                       scale.map((v, i) => {
                         const isLight = parseFloat(v.lstar) > 50;
-                        const textColor = isLight ? 'text-gray-900' : 'text-white';
+                        const textColor = isLight ? 'text-neutral-1100' : 'text-white';
                         const isKeyColor = cs.lockKeyColor
                           ? v.hex.toLowerCase() === cs.hex.toLowerCase()
                           : i === keyColorIndex;
@@ -3536,7 +3614,7 @@ export default function ColorScaleEditor() {
                                 </AnimatePresence>
                               </div>
                               {viewMode === 'default' && (
-                              <div className={`text-center text-[10px] leading-tight ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'} relative`}>
+                              <div className={`text-center text-[10px] leading-tight ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'} relative`}>
                                 <div className="relative">
                                   <input
                                     type="text"
@@ -3561,7 +3639,7 @@ export default function ColorScaleEditor() {
                                     }}
                                     onClick={(e) => e.stopPropagation()}
                                     className={`w-full px-1 py-0.5 rounded text-center font-dm-mono bg-transparent border border-transparent hover:border-current focus:outline-none focus:border-current ${
-                                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                                      theme === 'light' ? 'text-neutral-900' : 'text-gray-400'
                                     }`}
                                   />
                                   {v.isCustom && (
@@ -3571,7 +3649,7 @@ export default function ColorScaleEditor() {
                                           e.stopPropagation();
                                           resetCustomSwatch(cs.id, v.step);
                                         }}
-                                        className={`absolute -right-2 top-1/2 -translate-y-1/2 text-[10px] ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                                        className={`absolute -right-2 top-1/2 -translate-y-1/2 text-[10px] ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
                                         title="Reset to generated value"
                                       >
                                         ↺
@@ -3614,7 +3692,7 @@ export default function ColorScaleEditor() {
                   {/* Token Prefix and Key Color */}
                   <div className="mb-4 flex gap-4 items-start hidden">
                     <div>
-                      <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                      <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                         Token Prefix
                       </label>
                       <input
@@ -3624,16 +3702,16 @@ export default function ColorScaleEditor() {
                         placeholder="color"
                         className={`w-48 px-3 py-2 rounded-md text-sm font-mono focus:outline-none ${
                           theme === 'light'
-                            ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                            ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                             : 'bg-black border border-zinc-700 focus:border-zinc-600'
                         }`}
                       />
-                      <div className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-500'}`}>
+                      <div className={`text-xs mt-1 ${theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}`}>
                         Preview: {cs.isSingleColor ? cs.name : `${cs.name}-100, ${cs.name}-200, ...`}
                       </div>
                     </div>
                     <div>
-                      <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                      <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                         Key Color
                       </label>
                       <div className="flex items-center gap-3">
@@ -3666,7 +3744,7 @@ export default function ColorScaleEditor() {
                               e.target.blur(); // Trigger onBlur validation
                             }
                           }}
-                          className={`w-20 px-2 py-1 rounded-md text-xs font-mono focus:outline-none focus:border-blue-500 ${
+                          className={`w-20 px-2 py-1 rounded-md text-xs font-mono focus:outline-none focus:border-cyan-600 ${
                             theme === 'light'
                               ? 'bg-white border border-gray-300 text-gray-900'
                               : 'bg-black border border-zinc-700 text-gray-200'
@@ -3677,7 +3755,7 @@ export default function ColorScaleEditor() {
                           <div className="relative harmonize-dropdown-container">
                             <button
                               onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
-                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-md text-xs font-medium text-white transition-colors"
+                              className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-800 rounded-md text-xs font-medium text-white transition-colors"
                             >
                               Harmonize
                             </button>
@@ -3697,7 +3775,7 @@ export default function ColorScaleEditor() {
                                   ? 'bg-white border border-gray-300'
                                   : 'bg-zinc-800 border border-zinc-700'
                               }`}>
-                                <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
+                                <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Harmonize with:</div>
                                 <div className="space-y-1 max-h-[240px] overflow-y-auto">
                                   {colorScales
                                     .filter(otherCs => otherCs.id !== cs.id)
@@ -3715,7 +3793,7 @@ export default function ColorScaleEditor() {
                                           className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
                                           style={{ backgroundColor: otherCs.hex }}
                                         />
-                                        <span className={`text-xs ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{otherCs.name}</span>
+                                        <span className={`text-xs ${theme === 'light' ? 'text-neutral-1100' : 'text-gray-200'}`}>{otherCs.name}</span>
                                       </button>
                                     ))}
                                 </div>
@@ -3764,9 +3842,39 @@ export default function ColorScaleEditor() {
         >
           <button
             onClick={addColorScale}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
+            className="px-4 py-2.5 bg-[#2e2e2e] hover:bg-[#858585] rounded-lg text-sm font-medium text-white transition-colors"
           >
             + Add color scale
+          </button>
+          <input
+            type="file"
+            accept=".json"
+            id="import-figma-tokens"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  const content = event.target?.result;
+                  if (content) {
+                    importFigmaTokens(content);
+                  }
+                };
+                reader.readAsText(file);
+              }
+            }}
+          />
+          <button
+            onClick={() => document.getElementById('import-figma-tokens')?.click()}
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              theme === 'light'
+                ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                : 'bg-zinc-800 hover:bg-zinc-700 text-gray-200'
+            }`}
+          >
+            <span className="material-symbols-rounded text-[16px]">upload</span>
+            Import Figma Tokens
           </button>
           {colorScales.length > 0 && (
             !hasAnySaturatedColors() ? (
@@ -3834,13 +3942,13 @@ export default function ColorScaleEditor() {
                   ease: motionPresets.accordionExit.easing
                 }
               }}
-              className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+              className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
               id="color-families-panel"
               role="region"
               aria-labelledby="color-families-heading"
             >
             <div className="flex items-center justify-between mb-3">
-              <h3 id="color-families-heading" className={`text-lg font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              <h3 id="color-families-heading" className={`text-lg font-semibold ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
                 Add color families
               </h3>
               <button
@@ -3855,12 +3963,12 @@ export default function ColorScaleEditor() {
                 <span className="material-symbols-rounded text-[20px]">close</span>
               </button>
             </div>
-            <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+            <p className={`text-sm mb-4 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
             </p>
             <div className="flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-[300px]">
-                <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Select Color Families to Generate
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -3877,7 +3985,7 @@ export default function ColorScaleEditor() {
                     { name: 'Teal', value: 'teal', color: '#14b8a6' },
                     { name: 'Cyan', value: 'cyan', color: '#06b6d4' },
                     { name: 'Sky', value: 'sky', color: '#0ea5e9' },
-                    { name: 'Blue', value: 'blue', color: '#3b82f6' },
+                    { name: 'Blue', value: 'blue', color: '#a4a4a4' },
                     { name: 'Indigo', value: 'indigo', color: '#6366f1' },
                     { name: 'Violet', value: 'violet', color: '#8b5cf6' },
                     { name: 'Purple', value: 'purple', color: '#a855f7' },
@@ -3888,7 +3996,7 @@ export default function ColorScaleEditor() {
                       key={family.value}
                       className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
                         theme === 'light'
-                          ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                          ? 'bg-white border border-gray-300 hover:bg-neutral-100'
                           : 'bg-black border border-zinc-700 hover:bg-zinc-900'
                       }`}
                     >
@@ -3909,13 +4017,13 @@ export default function ColorScaleEditor() {
                         className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
                         style={{ backgroundColor: family.color }}
                       />
-                      <span className={`text-sm ${theme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{family.name}</span>
+                      <span className={`text-sm ${theme === 'light' ? 'text-neutral-1100' : 'text-gray-200'}`}>{family.name}</span>
                     </label>
                   ))}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className={`block text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                <label className={`block text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Base Color
                 </label>
                 <select
@@ -3941,13 +4049,13 @@ export default function ColorScaleEditor() {
                     onCheckedChange={setUseColorTheory}
                     size="1"
                   />
-                  <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                  <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
                     {useColorTheory ? 'Color Theory' : 'AI-based'}
                   </span>
                 </label>
                 <button
                   onClick={generateHarmoniousColors}
-                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
+                  className="px-4 py-2.5 bg-neutral-700 hover:bg-neutral-800 rounded-lg text-sm font-medium text-white transition-colors"
                 >
                   Preview colors
                 </button>
@@ -3968,9 +4076,9 @@ export default function ColorScaleEditor() {
                 <div className="flex flex-col items-center gap-4">
                   <div className="relative w-12 h-12">
                     <div className={`absolute inset-0 border-4 rounded-full ${theme === 'light' ? 'border-gray-300' : 'border-zinc-700'}`}></div>
-                    <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
+                    <div className="absolute inset-0 border-4 border-neutral-700 rounded-full border-t-transparent animate-spin"></div>
                   </div>
-                  <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Generating harmonious colors...</div>
+                  <div className={`text-sm ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Generating harmonious colors...</div>
                 </div>
               </div>
             </div>
@@ -3989,10 +4097,10 @@ export default function ColorScaleEditor() {
               {!isGenerating && previewColorsByFamily && (
                 <div className={`p-4 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
                   <div className="flex items-center justify-between mb-4">
-                  <div className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                  <div className={`text-sm font-medium ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
                     Preview Options - Select one or more from each family
                     {selectedPreviews.size > 0 && (
-                      <span className="ml-2 text-purple-400">({selectedPreviews.size} selected)</span>
+                      <span className="ml-2 text-neutral-600">({selectedPreviews.size} selected)</span>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -4014,7 +4122,7 @@ export default function ColorScaleEditor() {
                           ? theme === 'light'
                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             : 'bg-zinc-700 text-gray-500 cursor-not-allowed'
-                          : 'bg-green-600 hover:bg-green-700'
+                          : 'bg-emerald-700 hover:bg-emerald-800'
                       }`}
                     >
                       Add Selected ({selectedPreviews.size})
@@ -4034,7 +4142,7 @@ export default function ColorScaleEditor() {
                 <div className="flex flex-col gap-6">
                   {Object.entries(previewColorsByFamily).map(([family, options]) => (
                     <div key={family} className="flex flex-col gap-2">
-                      <div className={`text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                      <div className={`text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
                         {family}
                       </div>
                       <div className="flex gap-3 flex-wrap">
@@ -4057,10 +4165,10 @@ export default function ColorScaleEditor() {
                                 className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
                                   isSelected
                                     ? theme === 'light'
-                                      ? 'bg-purple-50 border-2 border-purple-500'
-                                      : 'bg-zinc-800 border-2 border-purple-500'
+                                      ? 'bg-neutral-100 border-2 border-neutral-700'
+                                      : 'bg-zinc-800 border-2 border-neutral-700'
                                     : theme === 'light'
-                                      ? 'bg-gray-50 border-2 border-gray-300 hover:border-gray-400'
+                                      ? 'bg-white border-2 border-gray-300 hover:border-gray-400'
                                       : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
                                 }`}
                               >
@@ -4069,11 +4177,11 @@ export default function ColorScaleEditor() {
                                   style={{ backgroundColor: hex }}
                                 />
                                 {method && (
-                                  <div className={`text-[10px] font-medium text-center ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                                  <div className={`text-[10px] font-medium text-center ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
                                     {method}
                                   </div>
                                 )}
-                                <div className={`text-xs font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{hex}</div>
+                                <div className={`text-xs font-mono ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{hex}</div>
                               </div>
                             </Tooltip>
                           );
