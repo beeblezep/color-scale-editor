@@ -33,7 +33,8 @@ export default function ColorScaleEditor() {
       cp2: { x: 0.50, y: 0.60 },
       isSingleColor: false,
       swatchCountOverride: null,
-      preHarmonizeHex: null // Store original color before harmonizing
+      preHarmonizeHex: null, // Store original color before harmonizing
+      includeAnchors: false // Include pure white and black anchor swatches
     }
   ]);
   const [nextColorId, setNextColorId] = useState(1);
@@ -1326,7 +1327,8 @@ export default function ColorScaleEditor() {
         cp1: { x: 0.33, y: 0.00 },
         cp2: { x: 0.50, y: 0.60 },
         isSingleColor: false,
-        swatchCountOverride: null
+        swatchCountOverride: null,
+        includeAnchors: false
       };
       newScales.push(newScale);
       scaleIndex++;
@@ -1539,7 +1541,8 @@ export default function ColorScaleEditor() {
       cp2: { x: 0.50, y: 0.60 },
       isSingleColor: false,
       swatchCountOverride: null,
-      preHarmonizeHex: null // Store original color before harmonizing
+      preHarmonizeHex: null, // Store original color before harmonizing
+      includeAnchors: false
     };
     setColorScales([...colorScales, newScale]);
     setNextColorId(nextColorId + 1);
@@ -1680,6 +1683,12 @@ export default function ColorScaleEditor() {
   const toggleAdvancedSettings = (id) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, showAdvancedSettings: !cs.showAdvancedSettings } : cs
+    ));
+  };
+
+  const toggleIncludeAnchors = (id) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, includeAnchors: !cs.includeAnchors } : cs
     ));
   };
 
@@ -2095,9 +2104,9 @@ export default function ColorScaleEditor() {
           }
         });
 
-        // Remove white and black anchors and apply numbering
+        // Remove white and black anchors (unless includeAnchors is enabled) and apply numbering
         scale = (() => {
-          const sliced = scale.slice(1, -1);
+          const sliced = cs.includeAnchors ? scale : scale.slice(1, -1);
           const lstarValues = sliced.map(s => s.lstar);
           const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
           const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
@@ -2710,9 +2719,9 @@ export default function ColorScaleEditor() {
               };
             }
 
-            // Remove white and black anchors and apply numbering
+            // Remove white and black anchors (unless includeAnchors is enabled) and apply numbering
             scale = (() => {
-              const sliced = scale.slice(1, -1);
+              const sliced = cs.includeAnchors ? scale : scale.slice(1, -1);
               const lstarValues = sliced.map(s => s.lstar);
               const lstarMin = (cs.useCustomLstarRange === true) ? cs.lstarMin : globalLstarMin;
               const lstarMax = (cs.useCustomLstarRange === true) ? cs.lstarMax : globalLstarMax;
@@ -2832,6 +2841,18 @@ export default function ColorScaleEditor() {
                         />
                         <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
                       </label>
+                      {!cs.isSingleColor && (
+                        <Tooltip content="Include pure white and black swatches at the ends">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox
+                              checked={cs.includeAnchors}
+                              onCheckedChange={() => toggleIncludeAnchors(cs.id)}
+                              size="1"
+                            />
+                            <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>W/B</span>
+                          </label>
+                        </Tooltip>
+                      )}
                       <label className="flex items-center gap-1.5 cursor-pointer" title="Single color mode (hides scale controls)">
                         <Checkbox
                           checked={cs.isSingleColor}
@@ -3424,6 +3445,7 @@ export default function ColorScaleEditor() {
                         const isKeyColor = cs.lockKeyColor
                           ? v.hex.toLowerCase() === cs.hex.toLowerCase()
                           : i === keyColorIndex;
+                        const isAnchor = cs.includeAnchors && (i === 0 || i === scale.length - 1);
                         return (
                             <div key={i} className="flex-1 flex flex-col gap-1">
                               <div
@@ -3439,6 +3461,15 @@ export default function ColorScaleEditor() {
                                     style={{ opacity: 0.5, fontVariationSettings: "'FILL' 1" }}
                                   >
                                     {cs.lockKeyColor ? 'lock' : 'key'}
+                                  </span>
+                                )}
+                                {isAnchor && viewMode === 'default' && (
+                                  <span
+                                    className={`material-symbols-rounded absolute bottom-1 left-1/2 -translate-x-1/2 text-[14px] ${textColor}`}
+                                    style={{ opacity: 0.3 }}
+                                    title="Anchor swatch (not affected by curves)"
+                                  >
+                                    anchor
                                   </span>
                                 )}
                                 <AnimatePresence mode="wait">
