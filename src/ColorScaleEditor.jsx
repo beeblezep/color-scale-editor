@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motionPresets } from './motionTokens';
-import { SegmentedControl, Theme, Switch, Tooltip } from '@radix-ui/themes';
+import { SegmentedControl, Theme, Switch, Tooltip, Checkbox } from '@radix-ui/themes';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ColorScaleEditor() {
@@ -32,7 +32,8 @@ export default function ColorScaleEditor() {
       cp1: { x: 0.33, y: 0.00 },
       cp2: { x: 0.50, y: 0.60 },
       isSingleColor: false,
-      swatchCountOverride: null
+      swatchCountOverride: null,
+      preHarmonizeHex: null // Store original color before harmonizing
     }
   ]);
   const [nextColorId, setNextColorId] = useState(1);
@@ -44,6 +45,7 @@ export default function ColorScaleEditor() {
   const [selectedPreviews, setSelectedPreviews] = useState(new Set()); // Set of selected previews like "purple-0", "yellow-2"
   const [isGenerating, setIsGenerating] = useState(false); // Loading state for API calls
   const [baseColorScaleId, setBaseColorScaleId] = useState(null); // Which color scale to use as base for harmonious colors
+  const [selectedHarmoniousFamilies, setSelectedHarmoniousFamilies] = useState(new Set()); // Selected color families for harmonious colors
   const [desaturatedScales, setDesaturatedScales] = useState(new Set()); // Set of scale IDs that are in desaturate/luminance mode
   const [isComparisonDesaturated, setIsComparisonDesaturated] = useState(false); // Whether all scales in comparison section are in desaturate/luminance mode
   const [shareUrl, setShareUrl] = useState('');
@@ -52,10 +54,19 @@ export default function ColorScaleEditor() {
   const [customIncrement, setCustomIncrement] = useState(10); // Custom increment for sequential numbering (e.g., 10 for 10, 20, 30...)
   const [useCustomIncrement, setUseCustomIncrement] = useState(false); // Whether to use custom increment instead of 100
   const [showVisualControls, setShowVisualControls] = useState(false); // Toggle to show/hide visual sliders and bezier canvas
+  const [useColorTheory, setUseColorTheory] = useState(true); // Toggle between color theory and API-based generation
+  const [showColorFamilies, setShowColorFamilies] = useState(false); // Toggle to show/hide color families section
+  const [showSwatchBorders, setShowSwatchBorders] = useState(true); // Toggle swatch borders on/off
+  const [swatchBackground, setSwatchBackground] = useState('#ffffff'); // Background color for swatch section
   const [dragState, setDragState] = useState(null); // For drag-to-change number inputs
   const [theme, setTheme] = useState('light'); // Theme mode: 'light' or 'dark'
   const [viewMode, setViewMode] = useState('default'); // View mode: 'default' or 'simple'
   const [displayMode, setDisplayMode] = useState('color'); // Display mode: 'color' or 'luminance'
+
+  // Sync swatch background with theme changes
+  useEffect(() => {
+    setSwatchBackground(theme === 'light' ? '#ffffff' : '#000000');
+  }, [theme]);
   const [contrastCheck, setContrastCheck] = useState('off'); // Contrast check: 'off', 'aa', or 'apca'
   const [contrastColor1, setContrastColor1] = useState('#ffffff'); // First custom contrast test color (default white)
   const [contrastColor2, setContrastColor2] = useState('#000000'); // Second custom contrast test color (default black)
@@ -872,7 +883,7 @@ export default function ColorScaleEditor() {
     };
   }, [dragState]);
 
-  const harmonizeWithColor = (targetScaleId, baseScaleId) => {
+  const harmonizeWithColor = (targetScaleId, baseScaleId, method = 'direct') => {
     const baseScale = colorScales.find(cs => cs.id === baseScaleId);
     const targetScale = colorScales.find(cs => cs.id === targetScaleId);
 
@@ -891,14 +902,48 @@ export default function ColorScaleEditor() {
     console.log('Base color:', baseScale.hex, 'HSL:', baseHsl);
     console.log('Target color before:', targetScale.hex, 'HSL:', targetHsl);
 
-    // Keep the target's hue but adjust saturation and lightness to harmonize
-    // Preserve the hue exactly
+    // Preserve the target's hue
     const harmonizedHue = targetHsl.h;
 
-    // Match saturation and lightness more closely to base for better harmony
-    // Use 80% base + 20% target for stronger harmonization
-    const harmonizedSaturation = (baseHsl.s * 0.8) + (targetHsl.s * 0.2);
-    const harmonizedLightness = (baseHsl.l * 0.8) + (targetHsl.l * 0.2);
+    // Apply different color theory methods
+    let harmonizedSaturation, harmonizedLightness;
+
+    switch (method) {
+      case 'direct':
+        // Direct Match - Exactly match base saturation and lightness
+        harmonizedSaturation = baseHsl.s;
+        harmonizedLightness = baseHsl.l;
+        break;
+
+      case 'complementary':
+        // Complementary - Match saturation but invert lightness
+        harmonizedSaturation = baseHsl.s;
+        harmonizedLightness = 1 - baseHsl.l;
+        break;
+
+      case 'analogous':
+        // Analogous - Match saturation, slightly lighter
+        harmonizedSaturation = baseHsl.s * 0.9;
+        harmonizedLightness = Math.min(0.95, baseHsl.l + 0.1);
+        break;
+
+      case 'triadic':
+        // Triadic - Boost saturation for vibrancy
+        harmonizedSaturation = Math.min(1, baseHsl.s * 1.2);
+        harmonizedLightness = baseHsl.l;
+        break;
+
+      case 'monochromatic':
+        // Monochromatic - Match saturation, darken for depth
+        harmonizedSaturation = baseHsl.s;
+        harmonizedLightness = Math.max(0.2, baseHsl.l - 0.2);
+        break;
+
+      default:
+        // Fallback to direct match
+        harmonizedSaturation = baseHsl.s;
+        harmonizedLightness = baseHsl.l;
+    }
 
     // Convert back to RGB and hex
     const harmonizedRgb = hslToRgb(harmonizedHue, harmonizedSaturation, harmonizedLightness);
@@ -906,15 +951,38 @@ export default function ColorScaleEditor() {
 
     console.log('Harmonized color:', harmonizedHex, 'HSL:', { h: harmonizedHue, s: harmonizedSaturation, l: harmonizedLightness });
 
-    // Update the target scale's hex color
-    updateColorScaleHex(targetScaleId, harmonizedHex);
+    // Update both the hex color AND store original (if not already stored) in a single state update
+    setColorScales(colorScales.map(cs => {
+      if (cs.id === targetScaleId) {
+        return {
+          ...cs,
+          hex: harmonizedHex,
+          preHarmonizeHex: cs.preHarmonizeHex || cs.hex // Store original if not already stored
+        };
+      }
+      return cs;
+    }));
+
     setHarmonizingScale(null);
   };
 
-  const generateHarmoniousColors = async () => {
+  const revertHarmonize = (scaleId) => {
+    const scale = colorScales.find(cs => cs.id === scaleId);
+    if (!scale || !scale.preHarmonizeHex) return;
+
+    // Restore original color and clear the stored value in a single state update
+    setColorScales(colorScales.map(cs =>
+      cs.id === scaleId
+        ? { ...cs, hex: scale.preHarmonizeHex, preHarmonizeHex: null }
+        : cs
+    ));
+    setHarmonizingScale(null);
+  };
+
+  // API-based generation (original implementation)
+  const generateHarmoniousColorsAPI = async () => {
     // Get selected color families
-    const checkboxes = document.querySelectorAll('.harmonious-color-checkbox:checked');
-    const selectedFamilies = Array.from(checkboxes).map(cb => cb.value);
+    const selectedFamilies = Array.from(selectedHarmoniousFamilies);
 
     if (selectedFamilies.length === 0) {
       alert('Please select at least one color family');
@@ -1041,6 +1109,143 @@ export default function ColorScaleEditor() {
     setIsGenerating(false);
   };
 
+  // Color theory-based generation (new implementation)
+  const generateHarmoniousColorsTheory = () => {
+    // Get selected color families
+    const selectedFamilies = Array.from(selectedHarmoniousFamilies);
+
+    if (selectedFamilies.length === 0) {
+      alert('Please select at least one color family');
+      return;
+    }
+
+    // Define hue ranges for each color family
+    const colorFamilyHues = {
+      red: 0,
+      rose: 350,
+      pink: 330,
+      orange: 30,
+      amber: 45,
+      yellow: 60,
+      lime: 90,
+      green: 135,
+      emerald: 150,
+      teal: 165,
+      cyan: 180,
+      sky: 200,
+      blue: 225,
+      indigo: 240,
+      violet: 280,
+      purple: 270,
+      'warm-gray': 40,
+      'cool-gray': 220
+    };
+
+    // Start loading
+    setIsGenerating(true);
+    setPreviewColorsByFamily(null);
+    setSelectedPreviews(new Set());
+
+    // Use selected base color or default to first color scale
+    const baseScale = baseColorScaleId
+      ? colorScales.find(cs => cs.id === baseColorScaleId)
+      : colorScales[0];
+
+    if (!baseScale) {
+      alert('Please create a color scale first');
+      setIsGenerating(false);
+      return;
+    }
+
+    const baseRgb = hexToRgb(baseScale.hex);
+    const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+
+    const colorsByFamily = {};
+
+    // Color theory methods with metadata
+    const colorTheoryMethods = [
+      {
+        name: 'Direct Match',
+        description: 'Matches saturation and lightness of base color',
+        apply: (targetHue, isGray) => {
+          const saturation = isGray ? 0.03 : baseHsl.s;
+          const lightness = baseHsl.l;
+          return { h: targetHue, s: saturation, l: lightness };
+        }
+      },
+      {
+        name: 'Complementary',
+        description: 'Inverts lightness for complementary contrast',
+        apply: (targetHue, isGray) => {
+          const saturation = isGray ? 0.03 : baseHsl.s;
+          const lightness = 1 - baseHsl.l; // Invert lightness
+          return { h: targetHue, s: saturation, l: lightness };
+        }
+      },
+      {
+        name: 'Analogous',
+        description: 'Slightly lighter/darker for subtle harmony',
+        apply: (targetHue, isGray) => {
+          const saturation = isGray ? 0.03 : baseHsl.s * 0.9; // Slightly reduce saturation
+          const lightness = Math.min(0.95, baseHsl.l + 0.1); // Slightly lighter
+          return { h: targetHue, s: saturation, l: lightness };
+        }
+      },
+      {
+        name: 'Triadic',
+        description: 'Boosts saturation for vibrant triadic balance',
+        apply: (targetHue, isGray) => {
+          const saturation = isGray ? 0.03 : Math.min(1, baseHsl.s * 1.2); // Boost saturation
+          const lightness = baseHsl.l;
+          return { h: targetHue, s: saturation, l: lightness };
+        }
+      },
+      {
+        name: 'Monochromatic',
+        description: 'Darkens while keeping saturation for depth',
+        apply: (targetHue, isGray) => {
+          const saturation = isGray ? 0.03 : baseHsl.s;
+          const lightness = Math.max(0.2, baseHsl.l - 0.2); // Darker
+          return { h: targetHue, s: saturation, l: lightness };
+        }
+      }
+    ];
+
+    for (const family of selectedFamilies) {
+      const targetHue = colorFamilyHues[family];
+      const isGray = family === 'warm-gray' || family === 'cool-gray';
+      const familyOptions = [];
+
+      // Generate 5 options using different color theory methods
+      colorTheoryMethods.forEach(method => {
+        const hsl = method.apply(targetHue, isGray);
+        const rgb = hslToRgb(hsl.h, hsl.s, hsl.l);
+        const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+
+        // Store hex with metadata
+        familyOptions.push({
+          hex,
+          method: method.name,
+          description: method.description
+        });
+      });
+
+      colorsByFamily[family] = familyOptions;
+    }
+
+    setPreviewColorsByFamily(colorsByFamily);
+    setIsGenerating(false);
+  };
+
+  // Wrapper function that calls the appropriate implementation
+  const generateHarmoniousColors = () => {
+    if (useColorTheory) {
+      generateHarmoniousColorsTheory();
+    } else {
+      generateHarmoniousColorsAPI();
+    }
+  };
+
   const applyPreviewColors = () => {
     if (!previewColorsByFamily || selectedPreviews.size === 0) return;
 
@@ -1053,7 +1258,10 @@ export default function ColorScaleEditor() {
       const lastDashIndex = selectionKey.lastIndexOf('-');
       const family = selectionKey.substring(0, lastDashIndex);
       const optionIndex = parseInt(selectionKey.substring(lastDashIndex + 1));
-      const hex = previewColorsByFamily[family][optionIndex];
+      const colorData = previewColorsByFamily[family][optionIndex];
+
+      // Handle both formats: string (API) or object with hex property (color theory)
+      const hex = typeof colorData === 'string' ? colorData : colorData.hex;
 
       // Check if a scale with this family name already exists
       const existingNames = [...colorScales, ...newScales].map(cs => cs.name);
@@ -1090,10 +1298,7 @@ export default function ColorScaleEditor() {
     setNextColorId(nextColorId + newScales.length);
     setPreviewColorsByFamily(null);
     setSelectedPreviews(new Set());
-
-    // Uncheck all checkboxes
-    const checkboxes = document.querySelectorAll('.harmonious-color-checkbox:checked');
-    checkboxes.forEach(cb => cb.checked = false);
+    setSelectedHarmoniousFamilies(new Set()); // Clear selected families
   };
 
   const cancelPreview = () => {
@@ -1293,7 +1498,8 @@ export default function ColorScaleEditor() {
       cp1: { x: 0.33, y: 0.00 },
       cp2: { x: 0.50, y: 0.60 },
       isSingleColor: false,
-      swatchCountOverride: null
+      swatchCountOverride: null,
+      preHarmonizeHex: null // Store original color before harmonizing
     };
     setColorScales([...colorScales, newScale]);
     setNextColorId(nextColorId + 1);
@@ -1934,7 +2140,7 @@ export default function ColorScaleEditor() {
         {/* Global Settings - Compact Input Controls */}
         <div className={`rounded-xl p-6 mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}>
           {/* Compact Controls Row */}
-          <div className="flex flex-wrap items-center gap-6 mb-4">
+          <div className="flex flex-wrap items-center gap-6">
             {/* Theme Toggle */}
             <div className="flex items-center gap-2">
               <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
@@ -2226,15 +2432,10 @@ export default function ColorScaleEditor() {
               >
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-2 cursor-pointer ml-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={useCustomIncrement}
-                      onChange={(e) => setUseCustomIncrement(e.target.checked)}
-                      className={`w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                        theme === 'light'
-                          ? 'border-gray-300 bg-white'
-                          : 'border-zinc-700 bg-black'
-                      }`}
+                      onCheckedChange={(checked) => setUseCustomIncrement(checked)}
+                      size="1"
                     />
                     <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Custom:</span>
                   </label>
@@ -2254,29 +2455,59 @@ export default function ColorScaleEditor() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Visual Controls Toggle */}
-          <button
-            onClick={() => setShowVisualControls(!showVisualControls)}
-            className={`flex items-center gap-2 text-xs transition-colors w-full justify-center py-2 mt-4 ${
-              theme === 'light'
-                ? 'text-gray-600 hover:text-gray-900 border-t border-gray-200'
-                : 'text-gray-400 hover:text-gray-200 border-t border-zinc-800'
-            }`}
-          >
-            <span className="font-medium">{showVisualControls ? 'Hide' : 'Show'} visual controls</span>
-            <span
-              className="material-symbols-rounded"
-              style={{
-                fontSize: '18px',
-                transform: showVisualControls ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: `transform ${showVisualControls ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${showVisualControls ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-              }}
-            >
-              expand_more
-            </span>
-          </button>
+            {/* Visual Controls */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Switch
+                checked={showVisualControls}
+                onCheckedChange={() => setShowVisualControls(!showVisualControls)}
+                className="scale-75"
+              />
+              <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Visual controls</span>
+            </label>
+
+            {/* Swatch Borders */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Switch
+                checked={showSwatchBorders}
+                onCheckedChange={setShowSwatchBorders}
+                className="scale-75"
+              />
+              <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Swatch borders</span>
+            </label>
+
+            {/* Swatch Background Color */}
+            <div className="flex items-center gap-2">
+              <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                Swatch BG
+              </label>
+              <input
+                type="color"
+                value={swatchBackground}
+                onChange={(e) => setSwatchBackground(e.target.value)}
+                className={`w-8 h-[26px] rounded cursor-pointer ${
+                  theme === 'light'
+                    ? 'border border-gray-300 bg-white'
+                    : 'border border-zinc-700 bg-black'
+                }`}
+              />
+              <input
+                type="text"
+                value={swatchBackground}
+                onChange={(e) => {
+                  const value = e.target.value.trim();
+                  if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
+                    setSwatchBackground(value);
+                  }
+                }}
+                className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                  theme === 'light'
+                    ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                    : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
+                }`}
+              />
+            </div>
+          </div>
 
           {/* Visual Controls - Sliders and Canvas */}
           <div
@@ -2288,7 +2519,7 @@ export default function ColorScaleEditor() {
               transition: `all ${showVisualControls ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${showVisualControls ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
             }}
           >
-            <div className={`pt-6 space-y-6 ${theme === 'light' ? 'border-t border-gray-200' : 'border-t border-zinc-800'}`}>
+            <div className="pt-6 space-y-6">
               {/* L* Range Sliders */}
               <div>
                 <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
@@ -2463,226 +2694,261 @@ export default function ColorScaleEditor() {
               <div className="p-4">
                 {/* Token Prefix and Key Color - Compact */}
                 {viewMode === 'default' && (
-                <div className="flex items-center justify-between gap-3 mb-3" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Token
-                      </label>
-                      <input
-                        type="text"
-                        value={cs.name}
-                        onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
-                        placeholder="color"
-                        className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                          theme === 'light'
-                            ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                            : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                        }`}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        Key
-                      </label>
-                      <input
-                        type="color"
-                        value={cs.hex}
-                        onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
-                        className={`w-8 h-[26px] rounded cursor-pointer ${
-                          theme === 'light'
-                            ? 'border border-gray-300 bg-white'
-                            : 'border border-zinc-700 bg-black'
-                        }`}
-                      />
-                      <input
-                        type="text"
-                        defaultValue={cs.hex}
-                        key={cs.hex}
-                        onBlur={(e) => {
-                          const value = e.target.value.trim();
-                          if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
-                            updateColorScaleHex(cs.id, value);
-                          } else {
-                            e.target.value = cs.hex;
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.target.blur();
-                          }
-                        }}
-                        className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
-                          theme === 'light'
-                            ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
-                            : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
-                        }`}
-                      />
-                    </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={cs.lockKeyColor}
-                        onChange={() => toggleLockKeyColor(cs.id)}
-                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                          theme === 'light'
-                            ? 'border-gray-300 bg-white'
-                            : 'border-zinc-700 bg-black'
-                        }`}
-                      />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer" title="Single color mode (hides scale controls)">
-                      <input
-                        type="checkbox"
-                        checked={cs.isSingleColor}
-                        onChange={() => toggleSingleColorMode(cs.id)}
-                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer ${
-                          theme === 'light'
-                            ? 'border-gray-300 bg-white'
-                            : 'border-zinc-700 bg-black'
-                        }`}
-                      />
-                      <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Single</span>
-                    </label>
-                    {!cs.isSingleColor && (
-                      <div className="flex items-center gap-1">
-                        <label className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Swatches</label>
+                <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                  {/* Token/Key row - responsive layout */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    {/* Left controls - wrap on all screens */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                          Token
+                        </label>
                         <input
-                          type="number"
-                          value={cs.swatchCountOverride ?? numSwatches}
-                          onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
-                          min="1"
-                          max="20"
-                          className={`w-12 px-1 py-1 rounded text-xs ${
+                          type="text"
+                          value={cs.name}
+                          onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
+                          placeholder="color"
+                          className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
                             theme === 'light'
-                              ? 'bg-white border border-gray-300 text-gray-900'
-                              : 'bg-black border border-zinc-700 text-gray-200'
+                              ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                              : 'bg-black border border-zinc-700 focus:border-zinc-600'
                           }`}
                         />
-                        {cs.swatchCountOverride !== null && (
-                          <button
-                            onClick={() => clearSwatchCountOverride(cs.id)}
-                            className={`text-[10px] ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
-                            title="Reset to global setting"
-                          >
-                            ↺
-                          </button>
-                        )}
                       </div>
-                    )}
-                    {!cs.isSingleColor && (
-                      <label className="flex items-center gap-1.5 cursor-pointer ml-2">
-                        <Switch
-                          checked={cs.showAdvancedSettings}
-                          onCheckedChange={() => toggleAdvancedSettings(cs.id)}
-                          className="scale-75"
-                        />
-                        <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Advanced</span>
-                      </label>
-                    )}
-                    {colorScales.length > 1 && (
-                      <div className="relative harmonize-dropdown-container">
-                        <Tooltip content="Adjusts saturation and lightness to match another color while preserving hue. Creates cohesive palettes where colors have similar vibrancy and brightness.">
-                          <button
-                            onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
-                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                              theme === 'light'
-                                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                                : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
-                            }`}
-                          >
-                            Harmonize...
-                          </button>
-                        </Tooltip>
-                        <div
-                          className="overflow-hidden absolute top-full left-0 z-50"
-                          style={{
-                            maxHeight: harmonizingScale === cs.id ? '400px' : '0',
-                            opacity: harmonizingScale === cs.id ? 1 : 0,
-                            marginTop: harmonizingScale === cs.id ? '8px' : '0',
-                            transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                          }}
-                        >
-                          <div className={`rounded-lg p-3 shadow-xl min-w-[200px] ${
+                      <div className="flex items-center gap-2">
+                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
+                          Key
+                        </label>
+                        <input
+                          type="color"
+                          value={cs.hex}
+                          onChange={(e) => updateColorScaleHex(cs.id, e.target.value)}
+                          className={`w-8 h-[26px] rounded cursor-pointer ${
                             theme === 'light'
-                              ? 'bg-white border border-gray-300'
-                              : 'bg-zinc-900 border border-zinc-700'
-                          }`}>
-                            <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
-                            <div className="flex flex-col gap-1.5">
-                              {colorScales
-                                .filter(otherScale => otherScale.id !== cs.id)
-                                .map(otherScale => (
+                              ? 'border border-gray-300 bg-white'
+                              : 'border border-zinc-700 bg-black'
+                          }`}
+                        />
+                        <input
+                          type="text"
+                          defaultValue={cs.hex}
+                          key={cs.hex}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim();
+                            if (/^#[0-9A-Fa-f]{6}$/.test(value) || /^#[0-9A-Fa-f]{3}$/.test(value)) {
+                              updateColorScaleHex(cs.id, value);
+                            } else {
+                              e.target.value = cs.hex;
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.target.blur();
+                            }
+                          }}
+                          className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                            theme === 'light'
+                              ? 'bg-white border border-gray-300 text-gray-900 focus:border-blue-500'
+                              : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
+                          }`}
+                        />
+                      </div>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <Checkbox
+                          checked={cs.lockKeyColor}
+                          onCheckedChange={() => toggleLockKeyColor(cs.id)}
+                          size="1"
+                        />
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Lock</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer" title="Single color mode (hides scale controls)">
+                        <Checkbox
+                          checked={cs.isSingleColor}
+                          onCheckedChange={() => toggleSingleColorMode(cs.id)}
+                          size="1"
+                        />
+                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Single</span>
+                      </label>
+                      {!cs.isSingleColor && (
+                        <div className="flex items-center gap-1">
+                          <label className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Swatches</label>
+                          <input
+                            type="number"
+                            value={cs.swatchCountOverride ?? numSwatches}
+                            onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
+                            min="1"
+                            max="20"
+                            className={`w-12 px-1 py-1 rounded text-xs ${
+                              theme === 'light'
+                                ? 'bg-white border border-gray-300 text-gray-900'
+                                : 'bg-black border border-zinc-700 text-gray-200'
+                            }`}
+                          />
+                          {cs.swatchCountOverride !== null && (
+                            <button
+                              onClick={() => clearSwatchCountOverride(cs.id)}
+                              className={`text-[10px] ${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+                              title="Reset to global setting"
+                            >
+                              ↺
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {!cs.isSingleColor && (
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <Switch
+                            checked={cs.showAdvancedSettings}
+                            onCheckedChange={() => toggleAdvancedSettings(cs.id)}
+                            className="scale-75"
+                          />
+                          <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Advanced</span>
+                        </label>
+                      )}
+                      {colorScales.length > 1 && (
+                        <div className="relative harmonize-dropdown-container">
+                          <Tooltip content="Adjusts saturation and lightness to match another color while preserving hue. Creates cohesive palettes where colors have similar vibrancy and brightness.">
+                            <button
+                              onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
+                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                theme === 'light'
+                                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                  : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                              }`}
+                            >
+                              Harmonize...
+                            </button>
+                          </Tooltip>
+                          <div
+                            className="overflow-hidden absolute top-full left-0 z-50"
+                            style={{
+                              maxHeight: harmonizingScale === cs.id ? '400px' : '0',
+                              opacity: harmonizingScale === cs.id ? 1 : 0,
+                              marginTop: harmonizingScale === cs.id ? '8px' : '0',
+                              transition: `all ${harmonizingScale === cs.id ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${harmonizingScale === cs.id ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                            }}
+                          >
+                            <div className={`rounded-lg p-3 shadow-xl min-w-[200px] ${
+                              theme === 'light'
+                                ? 'bg-white border border-gray-300'
+                                : 'bg-zinc-900 border border-zinc-700'
+                            }`}>
+                              <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>Harmonize with:</div>
+                              <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto">
+                                {/* Revert button - show if color was harmonized */}
+                                {cs.preHarmonizeHex && (
                                   <button
-                                    key={otherScale.id}
-                                    onClick={() => {
-                                      harmonizeWithColor(cs.id, otherScale.id);
-                                      setHarmonizingScale(null);
-                                    }}
-                                    className={`px-2 py-1.5 rounded text-xs text-left transition-colors flex items-center gap-2 ${
+                                    onClick={() => revertHarmonize(cs.id)}
+                                    className={`px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
                                       theme === 'light'
-                                        ? 'hover:bg-gray-100 text-gray-900'
-                                        : 'hover:bg-zinc-800 text-gray-200'
+                                        ? 'bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-orange-950 hover:bg-orange-900 text-orange-400 border border-orange-800'
                                     }`}
                                   >
+                                    <span className="material-symbols-rounded text-[14px]">undo</span>
+                                    <span>Revert to original</span>
                                     <div
-                                      className="w-4 h-4 rounded"
-                                      style={{ background: otherScale.hex }}
+                                      className="w-3 h-3 rounded ml-auto"
+                                      style={{ background: cs.preHarmonizeHex }}
                                     />
-                                    <span className="font-mono">{otherScale.name}</span>
                                   </button>
-                                ))}
+                                )}
+                                {colorScales
+                                  .filter(otherScale => otherScale.id !== cs.id)
+                                  .map(otherScale => {
+                                    const colorTheoryMethods = [
+                                      { id: 'direct', name: 'Direct Match', desc: 'Match saturation & lightness' },
+                                      { id: 'complementary', name: 'Complementary', desc: 'Invert lightness' },
+                                      { id: 'analogous', name: 'Analogous', desc: 'Subtle harmony' },
+                                      { id: 'triadic', name: 'Triadic', desc: 'Boost saturation' },
+                                      { id: 'monochromatic', name: 'Monochromatic', desc: 'Darken for depth' }
+                                    ];
+
+                                    return (
+                                      <div key={otherScale.id} className="flex flex-col gap-1">
+                                        <div className={`flex items-center gap-2 px-2 py-1 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                                          <div
+                                            className="w-3 h-3 rounded"
+                                            style={{ background: otherScale.hex }}
+                                          />
+                                          <span className="text-xs font-medium font-mono">{otherScale.name}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-0.5 ml-5">
+                                          {colorTheoryMethods.map(method => (
+                                            <Tooltip
+                                              key={method.id}
+                                              content={method.desc}
+                                            >
+                                              <button
+                                                onClick={() => {
+                                                  harmonizeWithColor(cs.id, otherScale.id, method.id);
+                                                  setHarmonizingScale(null);
+                                                }}
+                                                className={`px-2 py-1 rounded text-[11px] text-left transition-colors ${
+                                                  theme === 'light'
+                                                    ? 'hover:bg-gray-100 text-gray-700'
+                                                    : 'hover:bg-zinc-800 text-gray-400'
+                                                }`}
+                                              >
+                                                {method.name}
+                                              </button>
+                                            </Tooltip>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
 
-                  {/* Action buttons - right side */}
-                  <div className="flex items-center gap-2">
-                    <div className={`flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}>
+                    {/* Action buttons - right side on desktop, below on mobile */}
+                    <div className="flex items-center gap-2 sm:ml-auto">
+                      <div className={`flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}>
+                        <button
+                          onClick={() => moveColorScale(cs.id, 'up')}
+                          disabled={scaleIndex === 0}
+                          className={`p-1.5 transition-all duration-150 ease-in-out ${
+                            scaleIndex === 0
+                              ? theme === 'light'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
+                              : theme === 'light'
+                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
+                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
+                          }`}
+                          title="Move up"
+                        >
+                          <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_upward</span>
+                        </button>
+                        <button
+                          onClick={() => moveColorScale(cs.id, 'down')}
+                          disabled={scaleIndex === colorScales.length - 1}
+                          className={`p-1.5 transition-all duration-150 ease-in-out ${
+                            scaleIndex === colorScales.length - 1
+                              ? theme === 'light'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
+                              : theme === 'light'
+                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
+                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
+                          }`}
+                          title="Move down"
+                        >
+                          <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_downward</span>
+                        </button>
+                      </div>
                       <button
-                        onClick={() => moveColorScale(cs.id, 'up')}
-                        disabled={scaleIndex === 0}
-                        className={`p-1.5 transition-all duration-150 ease-in-out ${
-                          scaleIndex === 0
-                            ? theme === 'light'
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                              : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
-                            : theme === 'light'
-                              ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
-                        }`}
-                        title="Move up"
+                        onClick={() => removeColorScale(cs.id)}
+                        className="p-1.5 hover:bg-red-900 rounded transition-all duration-150 ease-in-out text-red-400 active:bg-red-950 active:scale-95"
+                        title="Remove scale"
                       >
-                        <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_upward</span>
-                      </button>
-                      <button
-                        onClick={() => moveColorScale(cs.id, 'down')}
-                        disabled={scaleIndex === colorScales.length - 1}
-                        className={`p-1.5 transition-all duration-150 ease-in-out ${
-                          scaleIndex === colorScales.length - 1
-                            ? theme === 'light'
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                              : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
-                            : theme === 'light'
-                              ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                              : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
-                        }`}
-                        title="Move down"
-                      >
-                        <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_downward</span>
+                        <span className="material-symbols-rounded text-[16px]">delete</span>
                       </button>
                     </div>
-                    <button
-                      onClick={() => removeColorScale(cs.id)}
-                      className="p-1.5 hover:bg-red-900 rounded transition-all duration-150 ease-in-out text-red-400 active:bg-red-950 active:scale-95"
-                      title="Remove scale"
-                    >
-                      <span className="material-symbols-rounded text-[16px]">delete</span>
-                    </button>
                   </div>
                 </div>
                 )}
@@ -2995,7 +3261,10 @@ export default function ColorScaleEditor() {
 
                 <div className="flex items-center gap-3">
                   {/* Swatches row with text overlay */}
-                  <div className="flex gap-1.5 flex-1">
+                  <div
+                    className="flex gap-1.5 flex-1 p-2 rounded"
+                    style={{ backgroundColor: swatchBackground }}
+                  >
                     {cs.isSingleColor ? (
                       // Single color: show larger single swatch with hex
                       <div className="w-full flex flex-col gap-1">
@@ -3003,7 +3272,7 @@ export default function ColorScaleEditor() {
                           className="h-14 rounded relative"
                           style={{
                             background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex,
-                            border: '0.5px solid rgba(128, 128, 128, 0.5)'
+                            border: showSwatchBorders ? '0.5px solid rgba(128, 128, 128, 0.5)' : 'none'
                           }}
                         >
                           <AnimatePresence mode="wait">
@@ -3090,7 +3359,7 @@ export default function ColorScaleEditor() {
                                 className="h-14 rounded relative"
                                 style={{
                                   background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex,
-                                  border: '0.5px solid rgba(128, 128, 128, 0.5)'
+                                  border: showSwatchBorders ? '0.5px solid rgba(128, 128, 128, 0.5)' : 'none'
                                 }}
                               >
                                 {isKeyColor && viewMode === 'default' && (
@@ -3384,18 +3653,67 @@ export default function ColorScaleEditor() {
         })}
         </AnimatePresence>
 
-
-        {colorScales.length > 0 && (
-          <motion.div
-            layout
-            transition={{
-              layout: {
-                duration: motionPresets.accordionEnter.duration / 1000,
-                ease: [0, 0, 0.2, 1]
-              }
-            }}
-            className={`rounded-xl p-6 mb-6 ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+        {/* Add color scale and Add color families buttons */}
+        <motion.div
+          layout
+          transition={{
+            layout: {
+              duration: motionPresets.accordionEnter.duration / 1000,
+              ease: [0, 0, 0.2, 1]
+            }
+          }}
+          className="flex gap-3 items-center mb-6"
+        >
+          <button
+            onClick={addColorScale}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
           >
+            + Add color scale
+          </button>
+          {colorScales.length > 0 && (
+            <button
+              onClick={() => setShowColorFamilies(!showColorFamilies)}
+              className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                theme === 'light'
+                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-gray-200'
+              }`}
+            >
+              {showColorFamilies ? '− Close families' : '+ Add color families'}
+            </button>
+          )}
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+          {colorScales.length > 0 && showColorFamilies && (
+            <motion.div
+              key="color-families"
+              layout
+              initial={{
+                opacity: 0,
+                height: 0,
+                marginBottom: 0
+              }}
+              animate={{
+                opacity: 1,
+                height: 'auto',
+                marginBottom: 24,
+                transition: {
+                  duration: motionPresets.accordionEnter.duration / 1000,
+                  ease: motionPresets.accordionEnter.easing
+                }
+              }}
+              exit={{
+                opacity: 0,
+                height: 0,
+                marginBottom: 0,
+                transition: {
+                  duration: motionPresets.accordionExit.duration / 1000,
+                  ease: motionPresets.accordionExit.easing
+                }
+              }}
+              className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+            >
             <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Add color families</h3>
             <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
@@ -3434,14 +3752,18 @@ export default function ColorScaleEditor() {
                           : 'bg-black border border-zinc-700 hover:bg-zinc-900'
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        value={family.value}
-                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-600 focus:ring-offset-0 cursor-pointer harmonious-color-checkbox ${
-                          theme === 'light'
-                            ? 'border-gray-300 bg-white'
-                            : 'border-zinc-700 bg-black'
-                        }`}
+                      <Checkbox
+                        checked={selectedHarmoniousFamilies.has(family.value)}
+                        onCheckedChange={(checked) => {
+                          const newSet = new Set(selectedHarmoniousFamilies);
+                          if (checked) {
+                            newSet.add(family.value);
+                          } else {
+                            newSet.delete(family.value);
+                          }
+                          setSelectedHarmoniousFamilies(newSet);
+                        }}
+                        size="1"
                       />
                       <div
                         className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
@@ -3473,6 +3795,16 @@ export default function ColorScaleEditor() {
                 </select>
               </div>
               <div className="flex items-end gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch
+                    checked={useColorTheory}
+                    onCheckedChange={setUseColorTheory}
+                    size="1"
+                  />
+                  <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                    {useColorTheory ? 'Color Theory' : 'AI-based'}
+                  </span>
+                </label>
                 <button
                   onClick={generateHarmoniousColors}
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
@@ -3564,31 +3896,45 @@ export default function ColorScaleEditor() {
                       <div className={`text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                         {family}
                       </div>
-                      <div className="flex gap-3">
-                        {options.map((hex, optionIndex) => {
+                      <div className="flex gap-3 flex-wrap">
+                        {options.map((colorData, optionIndex) => {
                           const selectionKey = `${family}-${optionIndex}`;
                           const isSelected = selectedPreviews.has(selectionKey);
 
+                          // Handle both formats: string (API) or object (color theory)
+                          const hex = typeof colorData === 'string' ? colorData : colorData.hex;
+                          const method = typeof colorData === 'object' ? colorData.method : null;
+                          const description = typeof colorData === 'object' ? colorData.description : null;
+
                           return (
-                            <div
+                            <Tooltip
                               key={optionIndex}
-                              onClick={() => togglePreviewSelection(family, optionIndex)}
-                              className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
-                                isSelected
-                                  ? theme === 'light'
-                                    ? 'bg-purple-50 border-2 border-purple-500'
-                                    : 'bg-zinc-800 border-2 border-purple-500'
-                                  : theme === 'light'
-                                    ? 'bg-gray-50 border-2 border-gray-300 hover:border-gray-400'
-                                    : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
-                              }`}
+                              content={method ? `${method}: ${description}` : hex}
                             >
                               <div
-                                className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
-                                style={{ backgroundColor: hex }}
-                              />
-                              <div className={`text-xs font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{hex}</div>
-                            </div>
+                                onClick={() => togglePreviewSelection(family, optionIndex)}
+                                className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                                  isSelected
+                                    ? theme === 'light'
+                                      ? 'bg-purple-50 border-2 border-purple-500'
+                                      : 'bg-zinc-800 border-2 border-purple-500'
+                                    : theme === 'light'
+                                      ? 'bg-gray-50 border-2 border-gray-300 hover:border-gray-400'
+                                      : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
+                                }`}
+                              >
+                                <div
+                                  className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
+                                  style={{ backgroundColor: hex }}
+                                />
+                                {method && (
+                                  <div className={`text-[10px] font-medium text-center ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                                    {method}
+                                  </div>
+                                )}
+                                <div className={`text-xs font-mono ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>{hex}</div>
+                              </div>
+                            </Tooltip>
                           );
                         })}
                       </div>
@@ -3599,25 +3945,8 @@ export default function ColorScaleEditor() {
               )}
             </div>
           </motion.div>
-        )}
-
-        <motion.div
-          layout
-          transition={{
-            layout: {
-              duration: motionPresets.accordionEnter.duration / 1000,
-              ease: [0, 0, 0.2, 1]
-            }
-          }}
-          className="flex gap-3 items-center"
-        >
-          <button
-            onClick={addColorScale}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors"
-          >
-            + Add color scale
-          </button>
-        </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
     </Theme>
