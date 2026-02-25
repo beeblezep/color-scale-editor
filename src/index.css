@@ -35,21 +35,21 @@ code {
     monospace;
 }
 
-/* Override Radix UI accent color to use darker gray */
-.radix-themes {
+/* Override Radix UI accent color for checkboxes and switches - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) {
   --accent-9: #1c1c1c !important;
   --accent-10: #000000 !important;
-  --accent-11: #1c1c1c !important;
-  --accent-12: #000000 !important;
   --gray-9: #1c1c1c !important;
   --gray-10: #000000 !important;
-  --gray-11: #1c1c1c !important;
-  --gray-12: #000000 !important;
 }
 
-/* Target the Switch thumb (the sliding button part) when checked */
-.rt-SwitchThumb[data-state="checked"] {
-  background-color: #1c1c1c !important;
+/* Dark mode: lighter accent for better on/off differentiation */
+.radix-themes.dark,
+.radix-themes[class*="dark"],
+[data-is-root-theme="true"][data-appearance="dark"],
+.dark .radix-themes {
+  --accent-9: #b7b7b7 !important;
+  --gray-9: #b7b7b7 !important;
 }
 
 /* Target checkbox with maximum specificity */

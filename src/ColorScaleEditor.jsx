@@ -2257,13 +2257,48 @@ export default function ColorScaleEditor() {
 
         {/* Action Buttons - Icon Only */}
         <div className="flex justify-end items-center gap-3 mb-4">
+          <input
+            type="file"
+            accept=".json"
+            id="import-figma-tokens"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  const content = event.target?.result;
+                  if (content) {
+                    importFigmaTokens(content);
+                  }
+                };
+                reader.readAsText(file);
+              }
+            }}
+          />
+          <Tooltip content="Import JSON file">
+            <button
+              onClick={() => document.getElementById('import-figma-tokens')?.click()}
+              className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
+                theme === 'light'
+                  ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
+                  : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:text-white hover:border-gray-500'
+              }`}
+              aria-label="Import JSON file"
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>
+                upload
+              </span>
+            </button>
+          </Tooltip>
+
           <Tooltip content="Export as Figma Tokens JSON">
             <button
               onClick={exportToFigmaTokens}
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
                   ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-neutral-600 hover:border-zinc-600'
+                  : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:text-white hover:border-gray-500'
               }`}
               aria-label="Export as Figma Tokens JSON"
             >
@@ -2279,7 +2314,7 @@ export default function ColorScaleEditor() {
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
                   ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-zinc-800 text-gray-400 border border-zinc-700 hover:bg-zinc-700 hover:text-neutral-600 hover:border-zinc-600'
+                  : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:text-white hover:border-gray-500'
               }`}
               aria-label="Copy shareable URL to clipboard"
             >
@@ -2981,8 +3016,8 @@ export default function ColorScaleEditor() {
                             onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
                             className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                               theme === 'light'
-                                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                                : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                                ? 'bg-gray-300 hover:bg-gray-200 text-gray-1000 border border-gray-300'
+                                : 'bg-gray-1100 hover:bg-gray-900 text-white border border-gray-1000'
                             }`}
                           >
                             Harmonize...
@@ -3077,7 +3112,7 @@ export default function ColorScaleEditor() {
 
                     {/* Action buttons - right side on desktop, below on mobile */}
                     <div className="flex items-center gap-2 sm:ml-auto">
-                      <div className={`flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-zinc-700'}`}>
+                      <div className={`flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-gray-900'}`}>
                         <button
                           onClick={() => moveColorScale(cs.id, 'up')}
                           disabled={scaleIndex === 0}
@@ -3085,10 +3120,10 @@ export default function ColorScaleEditor() {
                             scaleIndex === 0
                               ? theme === 'light'
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
+                                : 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
                               : theme === 'light'
                                 ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
+                                : 'bg-gray-1000 text-white hover:bg-gray-800 active:bg-gray-500 active:scale-95'
                           }`}
                           title="Move up"
                         >
@@ -3101,10 +3136,10 @@ export default function ColorScaleEditor() {
                             scaleIndex === colorScales.length - 1
                               ? theme === 'light'
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                                : 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50'
+                                : 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
                               : theme === 'light'
                                 ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                                : 'bg-zinc-800 text-gray-200 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95'
+                                : 'bg-gray-1000 text-white hover:bg-gray-800 active:bg-gray-500 active:scale-95'
                           }`}
                           title="Move down"
                         >
@@ -3842,39 +3877,13 @@ export default function ColorScaleEditor() {
         >
           <button
             onClick={addColorScale}
-            className="px-4 py-2.5 bg-[#2e2e2e] hover:bg-[#858585] rounded-lg text-sm font-medium text-white transition-colors"
-          >
-            + Add color scale
-          </button>
-          <input
-            type="file"
-            accept=".json"
-            id="import-figma-tokens"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  const content = event.target?.result;
-                  if (content) {
-                    importFigmaTokens(content);
-                  }
-                };
-                reader.readAsText(file);
-              }
-            }}
-          />
-          <button
-            onClick={() => document.getElementById('import-figma-tokens')?.click()}
-            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               theme === 'light'
-                ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-gray-200'
+                ? 'bg-gray-1100 hover:bg-gray-1000 text-gray-100'
+                : 'bg-gray-200 hover:bg-gray-600 text-gray-1200'
             }`}
           >
-            <span className="material-symbols-rounded text-[16px]">upload</span>
-            Import Figma Tokens
+            + Add color scale
           </button>
           {colorScales.length > 0 && (
             !hasAnySaturatedColors() ? (
@@ -3883,7 +3892,7 @@ export default function ColorScaleEditor() {
                   disabled={true}
                   className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                     theme === 'light'
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed opacity-50'
+                      ? 'bg-gray-400 text-gray-800 cursor-not-allowed opacity-50'
                       : 'bg-zinc-800 text-gray-500 cursor-not-allowed opacity-50'
                   }`}
                 >
@@ -3896,8 +3905,8 @@ export default function ColorScaleEditor() {
                 onClick={() => setShowColorFamilies(!showColorFamilies)}
                 className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                   theme === 'light'
-                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                    : 'bg-zinc-800 hover:bg-zinc-700 text-gray-200'
+                    ? 'bg-gray-400 hover:bg-gray-300 text-gray-1100'
+                    : 'bg-gray-1000 hover:bg-gray-900 text-white'
                 }`}
                 aria-expanded={showColorFamilies}
                 aria-controls="color-families-panel"
@@ -3942,7 +3951,7 @@ export default function ColorScaleEditor() {
                   ease: motionPresets.accordionExit.easing
                 }
               }}
-              className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-zinc-900 border border-zinc-800'}`}
+              className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-1300 border border-zinc-800'}`}
               id="color-families-panel"
               role="region"
               aria-labelledby="color-families-heading"
