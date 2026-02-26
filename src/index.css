@@ -43,7 +43,7 @@ code {
   --gray-10: #000000 !important;
 }
 
-/* Dark mode: lighter accent for better on/off differentiation */
+/* Dark mode: lighter accent for switches and other components */
 .radix-themes.dark,
 .radix-themes[class*="dark"],
 [data-is-root-theme="true"][data-appearance="dark"],
@@ -52,12 +52,44 @@ code {
   --gray-9: #b7b7b7 !important;
 }
 
-/* Target checkbox with maximum specificity */
-.radix-themes button.rt-CheckboxButton[data-state="checked"][data-accent-color="gray"],
-.radix-themes .rt-CheckboxButton[data-state="checked"],
-button.rt-reset.rt-CheckboxButton[data-state="checked"] {
+/* Override for regular checkboxes in dark mode */
+.radix-themes.dark [data-checkbox-type="regular"],
+.dark .radix-themes [data-checkbox-type="regular"],
+.dark [data-checkbox-type="regular"] {
+  --accent-9: #1c1c1c !important;
+  --gray-9: #1c1c1c !important;
+}
+
+/* Regular checkboxes - Light mode */
+.radix-themes:not(.dark) button.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+.radix-themes:not(.dark) .rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+button.rt-reset.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"]:not(.dark *) {
   background-color: #1c1c1c !important;
   border-color: #1c1c1c !important;
+}
+
+/* Regular checkboxes - Dark mode */
+.radix-themes.dark button.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+.dark .radix-themes .rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+.dark button.rt-reset.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"] {
+  background-color: #1c1c1c !important;
+  border-color: #1c1c1c !important;
+}
+
+/* Swatch checkboxes - Light mode (customize this) */
+.radix-themes:not(.dark) button.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+.radix-themes:not(.dark) .rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+button.rt-reset.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"]:not(.dark *) {
+  background-color: #1c1c1c !important;
+  border-color: #1c1c1c !important;
+}
+
+/* Swatch checkboxes - Dark mode (customize this) */
+.radix-themes.dark button.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+.dark .radix-themes .rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+.dark button.rt-reset.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"] {
+  background-color: #b7b7b7 !important;
+  border-color: #b7b7b7 !important;
 }
 
 /* Don't apply to unchecked state */

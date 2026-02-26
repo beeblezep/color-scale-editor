@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motionPresets } from './motionTokens';
-import { SegmentedControl, Theme, Switch, Tooltip, Checkbox } from '@radix-ui/themes';
+import { SegmentedControl, Theme, Switch, Tooltip, Checkbox, Button } from '@radix-ui/themes';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ColorScaleEditor() {
@@ -2282,7 +2282,7 @@ export default function ColorScaleEditor() {
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
                   ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:text-white hover:border-gray-500'
+                  : 'bg-gray-1300 text-gray-400 border border-gray-1100 hover:bg-gray-1100 hover:text-gray-300 hover:border-gray-1000'
               }`}
               aria-label="Import JSON file"
             >
@@ -2298,7 +2298,7 @@ export default function ColorScaleEditor() {
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
                   ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:text-white hover:border-gray-500'
+                  : 'bg-gray-1300 text-gray-400 border border-gray-1100 hover:bg-gray-1100 hover:text-gray-300 hover:border-gray-1000'
               }`}
               aria-label="Export as Figma Tokens JSON"
             >
@@ -2314,7 +2314,7 @@ export default function ColorScaleEditor() {
               className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
                 theme === 'light'
                   ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:text-white hover:border-gray-500'
+                  : 'bg-gray-1300 text-gray-400 border border-gray-1100 hover:bg-gray-1100 hover:text-gray-300 hover:border-gray-1000'
               }`}
               aria-label="Copy shareable URL to clipboard"
             >
@@ -2352,31 +2352,8 @@ export default function ColorScaleEditor() {
                 View
               </label>
               <SegmentedControl.Root value={viewMode} onValueChange={setViewMode} size="1">
-                <SegmentedControl.Item value="default">Default</SegmentedControl.Item>
-                <SegmentedControl.Item value="simple">Simple</SegmentedControl.Item>
-              </SegmentedControl.Root>
-            </div>
-
-            {/* Display Mode Toggle */}
-            <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
-                Swatches
-              </label>
-              <SegmentedControl.Root
-                value={displayMode}
-                onValueChange={(value) => {
-                  setDisplayMode(value);
-                  // Update desaturatedScales based on display mode
-                  if (value === 'luminance') {
-                    setDesaturatedScales(new Set(colorScales.map(cs => cs.id)));
-                  } else {
-                    setDesaturatedScales(new Set());
-                  }
-                }}
-                size="1"
-              >
-                <SegmentedControl.Item value="color">Color</SegmentedControl.Item>
-                <SegmentedControl.Item value="luminance">Luminance</SegmentedControl.Item>
+                <SegmentedControl.Item value="default">Full</SegmentedControl.Item>
+                <SegmentedControl.Item value="simple">Minimal</SegmentedControl.Item>
               </SegmentedControl.Root>
             </div>
 
@@ -2398,7 +2375,7 @@ export default function ColorScaleEditor() {
                 </div>
               }>
                 <label className={`text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
-                  Contrast
+                  Text contrast
                 </label>
               </Tooltip>
               <SegmentedControl.Root value={contrastCheck} onValueChange={setContrastCheck} size="1">
@@ -2419,7 +2396,7 @@ export default function ColorScaleEditor() {
                 className="flex items-center gap-2 overflow-hidden"
               >
                 <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
-                  Test Colors
+                  Text Colors
                 </label>
                 <div className="flex items-center gap-1.5">
                   <Tooltip content="First text color to test (default: white)">
@@ -2445,6 +2422,29 @@ export default function ColorScaleEditor() {
             )}
             </AnimatePresence>
 
+            {/* Display Mode Toggle */}
+            <div className="flex items-center gap-2">
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                Display
+              </label>
+              <SegmentedControl.Root
+                value={displayMode}
+                onValueChange={(value) => {
+                  setDisplayMode(value);
+                  // Update desaturatedScales based on display mode
+                  if (value === 'luminance') {
+                    setDesaturatedScales(new Set(colorScales.map(cs => cs.id)));
+                  } else {
+                    setDesaturatedScales(new Set());
+                  }
+                }}
+                size="1"
+              >
+                <SegmentedControl.Item value="color">Color</SegmentedControl.Item>
+                <SegmentedControl.Item value="luminance">Luminance</SegmentedControl.Item>
+              </SegmentedControl.Root>
+            </div>
+
             {/* Swatches Count */}
             <div className="flex items-center gap-2">
               <label
@@ -2452,7 +2452,7 @@ export default function ColorScaleEditor() {
                 onMouseDown={(e) => handleNumberDragStart(e, numSwatches, setNumSwatches, 4, 20, 1)}
                 title="Drag to change"
               >
-                Swatches
+                Swatch count
               </label>
               <input
                 type="number"
@@ -2467,198 +2467,6 @@ export default function ColorScaleEditor() {
                 }`}
               />
             </div>
-
-            {/* Bezier Control Points - Compact */}
-            <div className="flex items-center gap-2">
-              <label
-                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
-                onMouseDown={(e) => handleNumberDragStart(e, cp1.x, (v) => setCp1({ ...cp1, x: v }), 0, 1, 0.01)}
-                title="Drag to change X"
-              >
-                P1
-              </label>
-              <input
-                type="number"
-                value={cp1.x}
-                onChange={(e) => setCp1({ ...cp1, x: parseFloat(e.target.value) })}
-                min="0"
-                max="1"
-                step="0.01"
-                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                  theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                }`}
-              />
-              <input
-                type="number"
-                value={cp1.y}
-                onChange={(e) => setCp1({ ...cp1, y: parseFloat(e.target.value) })}
-                min="0"
-                max="1"
-                step="0.01"
-                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                  theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                }`}
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label
-                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
-                onMouseDown={(e) => handleNumberDragStart(e, cp2.x, (v) => setCp2({ ...cp2, x: v }), 0, 1, 0.01)}
-                title="Drag to change X"
-              >
-                P2
-              </label>
-              <input
-                type="number"
-                value={cp2.x}
-                onChange={(e) => setCp2({ ...cp2, x: parseFloat(e.target.value) })}
-                min="0"
-                max="1"
-                step="0.01"
-                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                  theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                }`}
-              />
-              <input
-                type="number"
-                value={cp2.y}
-                onChange={(e) => setCp2({ ...cp2, y: parseFloat(e.target.value) })}
-                min="0"
-                max="1"
-                step="0.01"
-                className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                  theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                }`}
-              />
-              <button
-                onClick={resetBezierPoints}
-                className={`ml-1 text-xs ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
-                title="Reset bezier points"
-              >
-                ↺
-              </button>
-            </div>
-
-            {/* L* Range - Compact Number Inputs */}
-            <div className="flex items-center gap-2">
-              <label
-                className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
-                onMouseDown={(e) => handleNumberDragStart(e, globalLstarMin, setGlobalLstarMin, 0, 95, 1)}
-                title="Drag to change Min"
-              >
-                L* Range
-              </label>
-              <input
-                type="number"
-                value={globalLstarMin}
-                onChange={(e) => setGlobalLstarMin(Math.max(0, Math.min(95, parseInt(e.target.value) || 10)))}
-                min="0"
-                max="95"
-                className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                  theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                }`}
-                placeholder="Min"
-              />
-              <span className={theme === 'light' ? 'text-neutral-600' : 'text-gray-600'}>–</span>
-              <input
-                type="number"
-                value={globalLstarMax}
-                onChange={(e) => setGlobalLstarMax(Math.max(5, Math.min(100, parseInt(e.target.value) || 98)))}
-                min="5"
-                max="100"
-                className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                  theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                }`}
-                placeholder="Max"
-              />
-              <button
-                onClick={() => {
-                  setGlobalLstarMin(10);
-                  setGlobalLstarMax(98);
-                }}
-                className={`ml-1 text-xs ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
-                title="Reset L* range"
-              >
-                ↺
-              </button>
-            </div>
-
-            {/* Token Numbering */}
-            <div className="flex items-center gap-3">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
-                Token numbering
-              </label>
-              <SegmentedControl.Root
-                value={useLightnessNumbering ? 'lightness' : 'sequential'}
-                onValueChange={(newValue) => {
-                  setUseLightnessNumbering(newValue === 'lightness');
-                }}
-                size="1"
-              >
-                <SegmentedControl.Item value="lightness">
-                  Lightness
-                </SegmentedControl.Item>
-                <SegmentedControl.Item value="sequential">
-                  Sequential
-                </SegmentedControl.Item>
-              </SegmentedControl.Root>
-              <div
-                className="overflow-hidden"
-                style={{
-                  maxHeight: !useLightnessNumbering ? '200px' : '0',
-                  opacity: !useLightnessNumbering ? 1 : 0,
-                  marginTop: !useLightnessNumbering ? '0' : '0',
-                  transition: `all ${!useLightnessNumbering ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!useLightnessNumbering ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer ml-2">
-                    <Checkbox
-                      checked={useCustomIncrement}
-                      onCheckedChange={(checked) => setUseCustomIncrement(checked)}
-                      size="1"
-                    />
-                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Custom:</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={customIncrement}
-                    onChange={(e) => setCustomIncrement(Math.max(1, parseInt(e.target.value) || 10))}
-                    disabled={!useCustomIncrement}
-                    min="1"
-                    max="1000"
-                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
-                      theme === 'light'
-                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
-                    } ${!useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Visual Controls */}
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <Switch
-                checked={showVisualControls}
-                onCheckedChange={() => setShowVisualControls(!showVisualControls)}
-                className="scale-75"
-              />
-              <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Visual controls</span>
-            </label>
 
             {/* Swatch Borders */}
             <label className="flex items-center gap-1.5 cursor-pointer">
@@ -2701,6 +2509,72 @@ export default function ColorScaleEditor() {
                 }`}
               />
             </div>
+
+            {/* Token Numbering */}
+            <div className="flex items-center gap-3">
+              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                Token numbering
+              </label>
+              <SegmentedControl.Root
+                value={useLightnessNumbering ? 'lightness' : 'sequential'}
+                onValueChange={(newValue) => {
+                  setUseLightnessNumbering(newValue === 'lightness');
+                }}
+                size="1"
+              >
+                <SegmentedControl.Item value="lightness">
+                  Lightness
+                </SegmentedControl.Item>
+                <SegmentedControl.Item value="sequential">
+                  Sequential
+                </SegmentedControl.Item>
+              </SegmentedControl.Root>
+              <div
+                className="overflow-hidden"
+                style={{
+                  display: !useLightnessNumbering ? 'block' : 'none',
+                  maxHeight: !useLightnessNumbering ? '200px' : '0',
+                  opacity: !useLightnessNumbering ? 1 : 0,
+                  marginTop: !useLightnessNumbering ? '0' : '0',
+                  transition: `all ${!useLightnessNumbering ? motionPresets.accordionEnter.duration : motionPresets.accordionExit.duration}ms ${!useLightnessNumbering ? motionPresets.accordionEnter.easing : motionPresets.accordionExit.easing}`
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer ml-2">
+                    <Checkbox
+                      checked={useCustomIncrement}
+                      onCheckedChange={(checked) => setUseCustomIncrement(checked)}
+                      size="1"
+                      data-checkbox-type="regular"
+                    />
+                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Custom:</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={customIncrement}
+                    onChange={(e) => setCustomIncrement(Math.max(1, parseInt(e.target.value) || 10))}
+                    disabled={!useCustomIncrement}
+                    min="1"
+                    max="1000"
+                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    } ${!useCustomIncrement ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Advanced */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Switch
+                checked={showVisualControls}
+                onCheckedChange={() => setShowVisualControls(!showVisualControls)}
+                className="scale-75"
+              />
+              <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Advanced</span>
+            </label>
           </div>
 
           {/* Visual Controls - Sliders and Canvas */}
@@ -2714,6 +2588,138 @@ export default function ColorScaleEditor() {
             }}
           >
             <div className="pt-6 space-y-6">
+              {/* P1, P2, L* Range - Horizontal Layout */}
+              <div className="flex items-center gap-4">
+                {/* P1 */}
+                <div className="flex items-center gap-2">
+                  <label
+                    className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
+                    onMouseDown={(e) => handleNumberDragStart(e, cp1.x, (v) => setCp1({ ...cp1, x: v }), 0, 1, 0.01)}
+                    title="Drag to change X"
+                  >
+                    P1
+                  </label>
+                  <input
+                    type="number"
+                    value={cp1.x}
+                    onChange={(e) => setCp1({ ...cp1, x: parseFloat(e.target.value) })}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    }`}
+                  />
+                  <input
+                    type="number"
+                    value={cp1.y}
+                    onChange={(e) => setCp1({ ...cp1, y: parseFloat(e.target.value) })}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    }`}
+                  />
+                </div>
+
+                {/* P2 */}
+                <div className="flex items-center gap-2">
+                  <label
+                    className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
+                    onMouseDown={(e) => handleNumberDragStart(e, cp2.x, (v) => setCp2({ ...cp2, x: v }), 0, 1, 0.01)}
+                    title="Drag to change X"
+                  >
+                    P2
+                  </label>
+                  <input
+                    type="number"
+                    value={cp2.x}
+                    onChange={(e) => setCp2({ ...cp2, x: parseFloat(e.target.value) })}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    }`}
+                  />
+                  <input
+                    type="number"
+                    value={cp2.y}
+                    onChange={(e) => setCp2({ ...cp2, y: parseFloat(e.target.value) })}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    }`}
+                  />
+                  <button
+                    onClick={resetBezierPoints}
+                    className={`ml-1 text-xs ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
+                    title="Reset bezier points"
+                  >
+                    ↺
+                  </button>
+                </div>
+
+                {/* L* Range */}
+                <div className="flex items-center gap-2">
+                  <label
+                    className={`text-xs font-medium cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
+                    onMouseDown={(e) => handleNumberDragStart(e, globalLstarMin, setGlobalLstarMin, 0, 95, 1)}
+                    title="Drag to change Min"
+                  >
+                    L* Range
+                  </label>
+                  <input
+                    type="number"
+                    value={globalLstarMin}
+                    onChange={(e) => setGlobalLstarMin(Math.max(0, Math.min(95, parseInt(e.target.value) || 10)))}
+                    min="0"
+                    max="95"
+                    className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    }`}
+                    placeholder="Min"
+                  />
+                  <span className={theme === 'light' ? 'text-neutral-600' : 'text-gray-600'}>–</span>
+                  <input
+                    type="number"
+                    value={globalLstarMax}
+                    onChange={(e) => setGlobalLstarMax(Math.max(5, Math.min(100, parseInt(e.target.value) || 98)))}
+                    min="5"
+                    max="100"
+                    className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
+                        : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    }`}
+                    placeholder="Max"
+                  />
+                  <button
+                    onClick={() => {
+                      setGlobalLstarMin(10);
+                      setGlobalLstarMax(98);
+                    }}
+                    className={`ml-1 text-xs ${theme === 'light' ? 'text-neutral-700 hover:text-neutral-900' : 'text-gray-500 hover:text-gray-300'}`}
+                    title="Reset L* range"
+                  >
+                    ↺
+                  </button>
+                </div>
+              </div>
+
               {/* L* Range Sliders */}
               <div>
                 <label className={`block text-xs font-medium uppercase tracking-wider mb-3 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
@@ -2951,6 +2957,7 @@ export default function ColorScaleEditor() {
                           checked={cs.lockKeyColor}
                           onCheckedChange={() => toggleLockKeyColor(cs.id)}
                           size="1"
+                          data-checkbox-type="regular"
                         />
                         <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Lock</span>
                       </label>
@@ -2961,6 +2968,7 @@ export default function ColorScaleEditor() {
                               checked={cs.includeAnchors}
                               onCheckedChange={() => toggleIncludeAnchors(cs.id)}
                               size="1"
+                              data-checkbox-type="regular"
                             />
                             <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>W/B</span>
                           </label>
@@ -2971,6 +2979,7 @@ export default function ColorScaleEditor() {
                           checked={cs.isSingleColor}
                           onCheckedChange={() => toggleSingleColorMode(cs.id)}
                           size="1"
+                          data-checkbox-type="regular"
                         />
                         <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Single</span>
                       </label>
@@ -3036,7 +3045,7 @@ export default function ColorScaleEditor() {
                             <div className={`rounded-lg p-3 shadow-xl min-w-[200px] ${
                               theme === 'light'
                                 ? 'bg-white border border-gray-300'
-                                : 'bg-zinc-900 border border-zinc-700'
+                                : 'bg-gray-1100 border border-zinc-700'
                             }`}>
                               <div className={`text-xs font-medium mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Harmonize with:</div>
                               <div className="flex flex-col gap-3 max-h-[240px] overflow-y-auto">
@@ -3875,38 +3884,49 @@ export default function ColorScaleEditor() {
           ref={addColorScaleButtonRef}
           className="flex gap-3 items-center mb-6"
         >
-          <button
+          <Button
             onClick={addColorScale}
-            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            variant="solid"
+            size="3"
+            className={`${
               theme === 'light'
-                ? 'bg-gray-1100 hover:bg-gray-1000 text-gray-100'
-                : 'bg-gray-200 hover:bg-gray-600 text-gray-1200'
+                ? '!bg-gray-1100 hover:!bg-gray-1000 !text-gray-100'
+                : '!bg-gray-200 hover:!bg-gray-600 !text-gray-1200'
             }`}
           >
             + Add color scale
-          </button>
+          </Button>
           {colorScales.length > 0 && (
             !hasAnySaturatedColors() ? (
               <Tooltip content="Add a color with at least some saturation to add a color family">
-                <button
+                <Button
                   disabled={true}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  variant="soft"
+                  size="3"
+                  style={theme === 'dark' ? {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    color: 'rgba(255, 255, 255, 0.3)',
+                    opacity: 1
+                  } : undefined}
+                  className={`flex items-center gap-2 ${
                     theme === 'light'
-                      ? 'bg-gray-400 text-gray-800 cursor-not-allowed opacity-50'
-                      : 'bg-zinc-800 text-gray-500 cursor-not-allowed opacity-50'
+                      ? '!bg-gray-400 !text-gray-800 cursor-not-allowed opacity-50'
+                      : 'cursor-not-allowed'
                   }`}
                 >
                   <span className="material-symbols-rounded text-[16px]">expand_more</span>
                   Add color families
-                </button>
+                </Button>
               </Tooltip>
             ) : (
-              <button
+              <Button
                 onClick={() => setShowColorFamilies(!showColorFamilies)}
-                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                variant="soft"
+                size="3"
+                className={`flex items-center gap-2 ${
                   theme === 'light'
-                    ? 'bg-gray-400 hover:bg-gray-300 text-gray-1100'
-                    : 'bg-gray-1000 hover:bg-gray-900 text-white'
+                    ? '!bg-gray-400 hover:!bg-gray-300 !text-gray-1100'
+                    : '!bg-gray-1000 hover:!bg-gray-900 !text-white'
                 }`}
                 aria-expanded={showColorFamilies}
                 aria-controls="color-families-panel"
@@ -3917,7 +3937,7 @@ export default function ColorScaleEditor() {
                   expand_more
                 </span>
                 Add color families
-              </button>
+              </Button>
             )
           )}
         </div>
@@ -3960,17 +3980,19 @@ export default function ColorScaleEditor() {
               <h3 id="color-families-heading" className={`text-lg font-semibold ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
                 Add color families
               </h3>
-              <button
+              <Button
                 onClick={() => setShowColorFamilies(false)}
-                className={`p-1 rounded hover:bg-opacity-10 transition-colors ${
+                variant="ghost"
+                size="1"
+                className={`p-1 ${
                   theme === 'light'
-                    ? 'hover:bg-gray-900 text-gray-600 hover:text-gray-900'
-                    : 'hover:bg-white text-gray-400 hover:text-gray-200'
+                    ? 'hover:bg-gray-900 hover:bg-opacity-10 text-gray-600 hover:text-gray-900'
+                    : 'hover:bg-white hover:bg-opacity-10 text-gray-400 hover:text-gray-200'
                 }`}
                 aria-label="Close color families panel"
               >
                 <span className="material-symbols-rounded text-[20px]">close</span>
-              </button>
+              </Button>
             </div>
             <p className={`text-sm mb-4 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
@@ -4021,6 +4043,7 @@ export default function ColorScaleEditor() {
                           setSelectedHarmoniousFamilies(newSet);
                         }}
                         size="1"
+                        data-checkbox-type="swatch"
                       />
                       <div
                         className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
@@ -4062,12 +4085,28 @@ export default function ColorScaleEditor() {
                     {useColorTheory ? 'Color Theory' : 'AI-based'}
                   </span>
                 </label>
-                <button
+                <Button
                   onClick={generateHarmoniousColors}
-                  className="px-4 py-2.5 bg-neutral-700 hover:bg-neutral-800 rounded-lg text-sm font-medium text-white transition-colors"
+                  disabled={selectedHarmoniousFamilies.size === 0}
+                  variant="solid"
+                  size="3"
+                  style={selectedHarmoniousFamilies.size === 0 && theme === 'dark' ? {
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    color: 'rgba(255, 255, 255, 0.35)',
+                    opacity: 1
+                  } : undefined}
+                  className={`${
+                    selectedHarmoniousFamilies.size === 0
+                      ? theme === 'light'
+                        ? '!bg-gray-400 !text-gray-800 cursor-not-allowed opacity-50'
+                        : 'cursor-not-allowed'
+                      : theme === 'light'
+                        ? '!bg-gray-1100 hover:!bg-gray-1000 !text-gray-100'
+                        : '!bg-gray-200 hover:!bg-gray-600 !text-gray-1200'
+                  }`}
                 >
                   Preview colors
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -4105,47 +4144,61 @@ export default function ColorScaleEditor() {
             >
               {!isGenerating && previewColorsByFamily && (
                 <div className={`p-4 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
                   <div className={`text-sm font-medium ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
                     Preview Options - Select one or more from each family
                     {selectedPreviews.size > 0 && (
                       <span className="ml-2 text-neutral-600">({selectedPreviews.size} selected)</span>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={generateHarmoniousColors}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
-                        theme === 'light'
-                          ? 'bg-gray-600 hover:bg-gray-700'
-                          : 'bg-zinc-700 hover:bg-zinc-600'
-                      }`}
-                    >
-                      Regenerate All
-                    </button>
-                    <button
-                      onClick={applyPreviewColors}
-                      disabled={selectedPreviews.size === 0}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
-                        selectedPreviews.size === 0
-                          ? theme === 'light'
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-zinc-700 text-gray-500 cursor-not-allowed'
-                          : 'bg-emerald-700 hover:bg-emerald-800'
-                      }`}
-                    >
-                      Add Selected ({selectedPreviews.size})
-                    </button>
-                    <button
+                  <div className="flex gap-3 flex-shrink-0 items-center">
+                    <Button
                       onClick={cancelPreview}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors ${
+                      variant="ghost"
+                      size="3"
+                      style={{ padding: '10px 16px', margin: '0 8px 0 0' }}
+                      className={`!rounded-lg ${
                         theme === 'light'
-                          ? 'bg-gray-600 hover:bg-gray-700'
-                          : 'bg-zinc-700 hover:bg-zinc-600'
+                          ? '!text-gray-900 hover:!bg-gray-200 hover:!rounded-lg'
+                          : '!text-gray-400 hover:!bg-white hover:!bg-opacity-10 hover:!rounded-lg'
                       }`}
                     >
                       Cancel
-                    </button>
+                    </Button>
+                    <Button
+                      onClick={generateHarmoniousColors}
+                      variant="soft"
+                      size="3"
+                      className={`${
+                        theme === 'light'
+                          ? '!bg-gray-400 hover:!bg-gray-300 !text-gray-1100'
+                          : '!bg-gray-1000 hover:!bg-gray-900 !text-white'
+                      }`}
+                    >
+                      Regenerate All
+                    </Button>
+                    <Button
+                      onClick={applyPreviewColors}
+                      disabled={selectedPreviews.size === 0}
+                      variant="solid"
+                      size="3"
+                      style={selectedPreviews.size === 0 && theme === 'dark' ? {
+                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        color: 'rgba(255, 255, 255, 0.35)',
+                        opacity: 1
+                      } : undefined}
+                      className={`${
+                        selectedPreviews.size === 0
+                          ? theme === 'light'
+                            ? '!bg-gray-400 !text-gray-800 cursor-not-allowed opacity-50'
+                            : 'cursor-not-allowed'
+                          : theme === 'light'
+                            ? '!bg-gray-1100 hover:!bg-gray-1000 !text-gray-100'
+                            : '!bg-gray-200 hover:!bg-gray-600 !text-gray-1200'
+                      }`}
+                    >
+                      Add Selected ({selectedPreviews.size})
+                    </Button>
                   </div>
                 </div>
                 <div className="flex flex-col gap-6">
@@ -4171,18 +4224,18 @@ export default function ColorScaleEditor() {
                             >
                               <div
                                 onClick={() => togglePreviewSelection(family, optionIndex)}
-                                className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                                className={`w-40 flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
                                   isSelected
                                     ? theme === 'light'
-                                      ? 'bg-neutral-100 border-2 border-neutral-700'
-                                      : 'bg-zinc-800 border-2 border-neutral-700'
+                                      ? 'bg-gray-200 border-2 border-gray-900'
+                                      : 'bg-gray-1100 border-2 border-zinc-500'
                                     : theme === 'light'
                                       ? 'bg-white border-2 border-gray-300 hover:border-gray-400'
-                                      : 'bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-600'
+                                      : 'bg-gray-1300 border-2 border-gray-1000 hover:border-gray-900'
                                 }`}
                               >
                                 <div
-                                  className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
+                                  className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-gray-900'}`}
                                   style={{ backgroundColor: hex }}
                                 />
                                 {method && (
