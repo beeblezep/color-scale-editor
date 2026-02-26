@@ -2224,7 +2224,7 @@ export default function ColorScaleEditor() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className={`text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>Primitive color builder</h1>
-            <p className={theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}>Interactive bezier curve editor for perceptually uniform color scales</p>
+            <p className={theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}>Design harmonious app color palettes grounded in color theory</p>
           </div>
 
           {/* Social Media Links */}
