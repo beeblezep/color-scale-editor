@@ -2182,12 +2182,12 @@ export default function ColorScaleEditor() {
           return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
         })();
 
-        // Apply custom swatches AFTER slicing (keyed by index, not step)
+        // Apply custom swatches AFTER slicing (keyed by step)
         scale.forEach((swatch, i) => {
-          if (cs.customSwatches[i]) {
+          if (cs.customSwatches[swatch.step]) {
             scale[i] = {
               ...swatch,
-              hex: cs.customSwatches[i],
+              hex: cs.customSwatches[swatch.step],
               isCustom: true
             };
           }
@@ -2218,7 +2218,7 @@ export default function ColorScaleEditor() {
 
   return (
     <Theme appearance={theme} accentColor="gray">
-      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-warm-gray-100 text-neutral-1100' : 'bg-warm-gray-1100 text-gray-200'}`}>
+      <div className={`min-h-screen p-8 ${theme === 'light' ? 'bg-warm-gray-200 text-neutral-1100' : 'bg-warm-gray-1100 text-gray-200'}`}>
       <div className="max-w-7xl mx-auto">
         {/* Header with Title and Social Links */}
         <div className="flex items-start justify-between">
@@ -2279,10 +2279,10 @@ export default function ColorScaleEditor() {
           <Tooltip content="Import JSON file">
             <button
               onClick={() => document.getElementById('import-figma-tokens')?.click()}
-              className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
+              className={`cardboard-icon-button w-9 h-9 rounded-md flex items-center justify-center ${
                 theme === 'light'
-                  ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-gray-1300 text-gray-400 border border-gray-1100 hover:bg-gray-1100 hover:text-gray-300 hover:border-gray-1000'
+                  ? 'bg-gray-100 text-neutral-900 border border-gray-300'
+                  : 'bg-gray-1300 text-gray-400 border border-gray-1100'
               }`}
               aria-label="Import JSON file"
             >
@@ -2295,10 +2295,10 @@ export default function ColorScaleEditor() {
           <Tooltip content="Export as Figma Tokens JSON">
             <button
               onClick={exportToFigmaTokens}
-              className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
+              className={`cardboard-icon-button w-9 h-9 rounded-md flex items-center justify-center ${
                 theme === 'light'
-                  ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-gray-1300 text-gray-400 border border-gray-1100 hover:bg-gray-1100 hover:text-gray-300 hover:border-gray-1000'
+                  ? 'bg-gray-100 text-neutral-900 border border-gray-300'
+                  : 'bg-gray-1300 text-gray-400 border border-gray-1100'
               }`}
               aria-label="Export as Figma Tokens JSON"
             >
@@ -2311,10 +2311,10 @@ export default function ColorScaleEditor() {
           <Tooltip content="Copy shareable URL to clipboard">
             <button
               onClick={generateShareUrl}
-              className={`w-9 h-9 rounded-md transition-colors flex items-center justify-center ${
+              className={`cardboard-icon-button w-9 h-9 rounded-md flex items-center justify-center ${
                 theme === 'light'
-                  ? 'bg-gray-100 text-neutral-900 border border-gray-300 hover:bg-neutral-100 hover:text-neutral-1000 hover:border-neutral-500'
-                  : 'bg-gray-1300 text-gray-400 border border-gray-1100 hover:bg-gray-1100 hover:text-gray-300 hover:border-gray-1000'
+                  ? 'bg-gray-100 text-neutral-900 border border-gray-300'
+                  : 'bg-gray-1300 text-gray-400 border border-gray-1100'
               }`}
               aria-label="Copy shareable URL to clipboard"
             >
@@ -2332,12 +2332,12 @@ export default function ColorScaleEditor() {
         </div>
 
         {/* Global Settings - Compact Input Controls */}
-        <div className={`rounded-xl p-6 mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}>
+        <div className={`cardboard-panel rounded-xl p-6 mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}>
           {/* Compact Controls Row */}
           <div className="flex flex-wrap items-center gap-6">
             {/* Theme Toggle */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+              <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Theme
               </label>
               <SegmentedControl.Root value={theme} onValueChange={setTheme} size="1">
@@ -2348,7 +2348,7 @@ export default function ColorScaleEditor() {
 
             {/* View Mode Toggle */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+              <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 View
               </label>
               <SegmentedControl.Root value={viewMode} onValueChange={setViewMode} size="1">
@@ -2374,7 +2374,7 @@ export default function ColorScaleEditor() {
                   </div>
                 </div>
               }>
-                <label className={`text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider cursor-help ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Text contrast
                 </label>
               </Tooltip>
@@ -2395,7 +2395,7 @@ export default function ColorScaleEditor() {
                 transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 className="flex items-center gap-2 overflow-hidden"
               >
-                <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Text Colors
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -2424,7 +2424,7 @@ export default function ColorScaleEditor() {
 
             {/* Display Mode Toggle */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+              <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Display
               </label>
               <SegmentedControl.Root
@@ -2448,7 +2448,7 @@ export default function ColorScaleEditor() {
             {/* Swatches Count */}
             <div className="flex items-center gap-2">
               <label
-                className={`text-xs font-medium uppercase tracking-wider cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
+                className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider cursor-ew-resize select-none ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}
                 onMouseDown={(e) => handleNumberDragStart(e, numSwatches, setNumSwatches, 4, 20, 1)}
                 title="Drag to change"
               >
@@ -2460,7 +2460,7 @@ export default function ColorScaleEditor() {
                 onChange={(e) => setNumSwatches(Math.max(4, Math.min(20, parseInt(e.target.value) || 12)))}
                 min="4"
                 max="20"
-                className={`w-14 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                className={`font-jetbrains-mono w-14 px-2 py-1 rounded-md text-xs focus:outline-none ${
                   theme === 'light'
                     ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 focus:border-zinc-600'
@@ -2469,18 +2469,23 @@ export default function ColorScaleEditor() {
             </div>
 
             {/* Swatch Borders */}
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <Switch
-                checked={showSwatchBorders}
-                onCheckedChange={setShowSwatchBorders}
-                className="scale-75"
-              />
-              <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Swatch borders</span>
-            </label>
+            <button
+              onClick={() => setShowSwatchBorders(!showSwatchBorders)}
+              className={`font-jetbrains-mono px-2.5 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
+                theme === 'light'
+                  ? 'bg-gray-200 text-gray-900 border border-gray-400 hover:bg-gray-300'
+                  : 'bg-gray-1200 text-gray-400 border border-gray-1000 hover:bg-gray-1100'
+              }`}
+            >
+              <span className={`material-symbols-rounded text-[16px] ${theme === 'light' ? 'text-gray-1200' : 'text-white'}`} style={{ fontVariationSettings: `'FILL' ${showSwatchBorders ? 1 : 0}` }}>
+                border_all
+              </span>
+              Swatch borders
+            </button>
 
             {/* Swatch Background Color */}
             <div className="flex items-center gap-2">
-              <label className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+              <label className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Swatch BG
               </label>
               <input
@@ -2502,7 +2507,7 @@ export default function ColorScaleEditor() {
                     setSwatchBackground(value);
                   }
                 }}
-                className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                className={`font-jetbrains-mono w-20 px-2 py-1 rounded text-xs focus:outline-none ${
                   theme === 'light'
                     ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                     : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
@@ -2512,7 +2517,7 @@ export default function ColorScaleEditor() {
 
             {/* Token Numbering */}
             <div className="flex items-center gap-3">
-              <label className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+              <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                 Token numbering
               </label>
               <SegmentedControl.Root
@@ -2547,7 +2552,7 @@ export default function ColorScaleEditor() {
                       size="1"
                       data-checkbox-type="regular"
                     />
-                    <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Custom:</span>
+                    <span className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Custom:</span>
                   </label>
                   <input
                     type="number"
@@ -2556,7 +2561,7 @@ export default function ColorScaleEditor() {
                     disabled={!useCustomIncrement}
                     min="1"
                     max="1000"
-                    className={`w-16 px-2 py-1 rounded-md text-xs font-mono focus:outline-none ${
+                    className={`font-jetbrains-mono w-16 px-2 py-1 rounded-md text-xs focus:outline-none ${
                       theme === 'light'
                         ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                         : 'bg-black border border-zinc-700 focus:border-zinc-600'
@@ -2573,7 +2578,7 @@ export default function ColorScaleEditor() {
                 onCheckedChange={() => setShowVisualControls(!showVisualControls)}
                 className="scale-75"
               />
-              <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Advanced</span>
+              <span className={`font-jetbrains-mono text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Advanced</span>
             </label>
           </div>
 
@@ -2849,12 +2854,12 @@ export default function ColorScaleEditor() {
               return sliced.map((swatch, i) => ({ ...swatch, step: steps[i] }));
             })();
 
-            // Apply custom swatches AFTER renumbering (keyed by index, not step)
+            // Apply custom swatches AFTER renumbering (keyed by step)
             scale.forEach((swatch, i) => {
-              if (cs.customSwatches[i]) {
+              if (cs.customSwatches[swatch.step]) {
                 scale[i] = {
                   ...swatch,
-                  hex: cs.customSwatches[i],
+                  hex: cs.customSwatches[swatch.step],
                   isCustom: true
                 };
               }
@@ -2887,7 +2892,7 @@ export default function ColorScaleEditor() {
                   ease: [0.4, 0, 0.2, 1]
                 }
               }}
-              className={`rounded-xl mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}
+              className={`cardboard-panel rounded-xl mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}
             >
               {/* Always visible compact header */}
               <div className="p-4">
@@ -2899,7 +2904,7 @@ export default function ColorScaleEditor() {
                     {/* Left controls - wrap on all screens */}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <div className="flex items-center gap-2">
-                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                        <label className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                           Token
                         </label>
                         <input
@@ -2907,7 +2912,7 @@ export default function ColorScaleEditor() {
                           value={cs.name}
                           onChange={(e) => updateColorScaleName(cs.id, e.target.value)}
                           placeholder="color"
-                          className={`w-32 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                          className={`font-jetbrains-mono cardboard-input w-32 px-2 py-1 rounded text-xs focus:outline-none ${
                             theme === 'light'
                               ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                               : 'bg-black border border-zinc-700 focus:border-zinc-600'
@@ -2915,7 +2920,7 @@ export default function ColorScaleEditor() {
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                        <label className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                           Key
                         </label>
                         <input
@@ -2945,7 +2950,7 @@ export default function ColorScaleEditor() {
                               e.target.blur();
                             }
                           }}
-                          className={`w-20 px-2 py-1 rounded text-xs font-mono focus:outline-none ${
+                          className={`font-jetbrains-mono cardboard-input w-20 px-2 py-1 rounded text-xs focus:outline-none ${
                             theme === 'light'
                               ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
                               : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
@@ -2959,7 +2964,7 @@ export default function ColorScaleEditor() {
                           size="1"
                           data-checkbox-type="regular"
                         />
-                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Lock</span>
+                        <span className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Lock</span>
                       </label>
                       {!cs.isSingleColor && (
                         <Tooltip content="Include pure white and black swatches at the ends">
@@ -2970,7 +2975,7 @@ export default function ColorScaleEditor() {
                               size="1"
                               data-checkbox-type="regular"
                             />
-                            <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>W/B</span>
+                            <span className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>W/B</span>
                           </label>
                         </Tooltip>
                       )}
@@ -2981,18 +2986,18 @@ export default function ColorScaleEditor() {
                           size="1"
                           data-checkbox-type="regular"
                         />
-                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Single</span>
+                        <span className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Single</span>
                       </label>
                       {!cs.isSingleColor && (
                         <div className="flex items-center gap-1">
-                          <label className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Swatches</label>
+                          <label className={`font-jetbrains-mono text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Swatches</label>
                           <input
                             type="number"
                             value={cs.swatchCountOverride ?? numSwatches}
                             onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
                             min="1"
                             max="20"
-                            className={`w-12 px-1 py-1 rounded text-xs ${
+                            className={`font-jetbrains-mono w-12 px-1 py-1 rounded text-xs ${
                               theme === 'light'
                                 ? 'bg-white border border-gray-300 text-gray-900'
                                 : 'bg-black border border-zinc-700 text-gray-200'
@@ -3016,17 +3021,17 @@ export default function ColorScaleEditor() {
                             onCheckedChange={() => toggleAdvancedSettings(cs.id)}
                             className="scale-75"
                           />
-                          <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Advanced</span>
+                          <span className={`font-jetbrains-mono text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Advanced</span>
                         </label>
                       )}
                       {colorScales.length > 1 && (
                         <div className="relative harmonize-dropdown-container">
                           <button
                             onClick={() => setHarmonizingScale(harmonizingScale === cs.id ? null : cs.id)}
-                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                            className={`cardboard-small-button px-2 py-1 rounded text-xs font-medium ${
                               theme === 'light'
-                                ? 'bg-gray-300 hover:bg-gray-200 text-gray-1000 border border-gray-300'
-                                : 'bg-gray-1100 hover:bg-gray-900 text-white border border-gray-1000'
+                                ? 'bg-gray-300 text-gray-1000 border border-gray-300'
+                                : 'bg-gray-1100 text-white border border-gray-1000'
                             }`}
                           >
                             Harmonize...
@@ -3121,38 +3126,38 @@ export default function ColorScaleEditor() {
 
                     {/* Action buttons - right side on desktop, below on mobile */}
                     <div className="flex items-center gap-2 sm:ml-auto">
-                      <div className={`flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-gray-900'}`}>
+                      <div className={`cardboard-button-group flex gap-0.5 rounded-md overflow-hidden ${theme === 'light' ? 'border border-gray-300' : 'border border-gray-900'}`}>
                         <button
                           onClick={() => moveColorScale(cs.id, 'up')}
                           disabled={scaleIndex === 0}
-                          className={`p-1.5 transition-all duration-150 ease-in-out ${
+                          className={`cardboard-arrow-button p-1.5 ${
                             scaleIndex === 0
                               ? theme === 'light'
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                                 : 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
                               : theme === 'light'
-                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                                : 'bg-gray-1000 text-white hover:bg-gray-800 active:bg-gray-500 active:scale-95'
+                                ? 'bg-gray-200 text-gray-900'
+                                : 'bg-gray-1000 text-white'
                           }`}
                           title="Move up"
                         >
-                          <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_upward</span>
+                          <span className="material-symbols-rounded text-[16px]">arrow_upward</span>
                         </button>
                         <button
                           onClick={() => moveColorScale(cs.id, 'down')}
                           disabled={scaleIndex === colorScales.length - 1}
-                          className={`p-1.5 transition-all duration-150 ease-in-out ${
+                          className={`cardboard-arrow-button p-1.5 ${
                             scaleIndex === colorScales.length - 1
                               ? theme === 'light'
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                                 : 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-50'
                               : theme === 'light'
-                                ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                                : 'bg-gray-1000 text-white hover:bg-gray-800 active:bg-gray-500 active:scale-95'
+                                ? 'bg-gray-200 text-gray-900'
+                                : 'bg-gray-1000 text-white'
                           }`}
                           title="Move down"
                         >
-                          <span className="material-symbols-rounded text-[16px] transition-transform duration-150">arrow_downward</span>
+                          <span className="material-symbols-rounded text-[16px]">arrow_downward</span>
                         </button>
                       </div>
                       <button
@@ -3483,7 +3488,7 @@ export default function ColorScaleEditor() {
                       // Single color: show larger single swatch with hex
                       <div className="w-full flex flex-col gap-1">
                         <div
-                          className="h-14 rounded relative"
+                          className="h-14 cardboard-swatch relative"
                           style={{
                             background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex,
                             border: showSwatchBorders ? '0.5px solid rgba(128, 128, 128, 0.5)' : 'none'
@@ -3571,7 +3576,7 @@ export default function ColorScaleEditor() {
                         return (
                             <div key={i} className="flex-1 flex flex-col gap-1">
                               <div
-                                className="h-14 rounded relative"
+                                className="h-14 cardboard-swatch relative"
                                 style={{
                                   background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex,
                                   border: showSwatchBorders ? '0.5px solid rgba(128, 128, 128, 0.5)' : 'none'
@@ -3888,10 +3893,10 @@ export default function ColorScaleEditor() {
             onClick={addColorScale}
             variant="solid"
             size="3"
-            className={`${
+            className={`cardboard-primary ${
               theme === 'light'
-                ? '!bg-gray-1100 hover:!bg-gray-1000 !text-gray-100'
-                : '!bg-gray-200 hover:!bg-gray-600 !text-gray-1200'
+                ? '!bg-gray-1100 !text-gray-100'
+                : '!bg-gray-200 !text-gray-1200'
             }`}
           >
             + Add color scale
@@ -3903,15 +3908,10 @@ export default function ColorScaleEditor() {
                   disabled={true}
                   variant="soft"
                   size="3"
-                  style={theme === 'dark' ? {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    color: 'rgba(255, 255, 255, 0.3)',
-                    opacity: 1
-                  } : undefined}
-                  className={`flex items-center gap-2 ${
+                  className={`cardboard-secondary flex items-center gap-2 ${
                     theme === 'light'
-                      ? '!bg-gray-400 !text-gray-800 cursor-not-allowed opacity-50'
-                      : 'cursor-not-allowed'
+                      ? '!bg-gray-400 !text-gray-1100'
+                      : '!bg-gray-1000 !text-white'
                   }`}
                 >
                   <span className="material-symbols-rounded text-[16px]">expand_more</span>
@@ -3923,10 +3923,10 @@ export default function ColorScaleEditor() {
                 onClick={() => setShowColorFamilies(!showColorFamilies)}
                 variant="soft"
                 size="3"
-                className={`flex items-center gap-2 ${
+                className={`cardboard-secondary flex items-center gap-2 ${
                   theme === 'light'
-                    ? '!bg-gray-400 hover:!bg-gray-300 !text-gray-1100'
-                    : '!bg-gray-1000 hover:!bg-gray-900 !text-white'
+                    ? '!bg-gray-400 !text-gray-1100'
+                    : '!bg-gray-1000 !text-white'
                 }`}
                 aria-expanded={showColorFamilies}
                 aria-controls="color-families-panel"
@@ -3971,7 +3971,7 @@ export default function ColorScaleEditor() {
                   ease: motionPresets.accordionExit.easing
                 }
               }}
-              className={`rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-1300 border border-zinc-800'}`}
+              className={`cardboard-panel rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-1300 border border-zinc-800'}`}
               id="color-families-panel"
               role="region"
               aria-labelledby="color-families-heading"
@@ -3980,19 +3980,17 @@ export default function ColorScaleEditor() {
               <h3 id="color-families-heading" className={`text-lg font-semibold ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
                 Add color families
               </h3>
-              <Button
+              <button
                 onClick={() => setShowColorFamilies(false)}
-                variant="ghost"
-                size="1"
-                className={`p-1 ${
+                className={`cardboard-icon-button w-9 h-9 rounded-md flex items-center justify-center ${
                   theme === 'light'
-                    ? 'hover:bg-gray-900 hover:bg-opacity-10 text-gray-600 hover:text-gray-900'
-                    : 'hover:bg-white hover:bg-opacity-10 text-gray-400 hover:text-gray-200'
+                    ? 'bg-gray-100 text-neutral-900 border border-gray-300'
+                    : 'bg-gray-1300 text-gray-400 border border-gray-1100'
                 }`}
                 aria-label="Close color families panel"
               >
                 <span className="material-symbols-rounded text-[20px]">close</span>
-              </Button>
+              </button>
             </div>
             <p className={`text-sm mb-4 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
@@ -4025,7 +4023,7 @@ export default function ColorScaleEditor() {
                   ].map((family) => (
                     <label
                       key={family.value}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                      className={`cardboard-small-button flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
                         theme === 'light'
                           ? 'bg-white border border-gray-300 hover:bg-neutral-100'
                           : 'bg-black border border-zinc-700 hover:bg-zinc-900'
@@ -4061,7 +4059,7 @@ export default function ColorScaleEditor() {
                 <select
                   value={baseColorScaleId || ''}
                   onChange={(e) => setBaseColorScaleId(e.target.value ? parseInt(e.target.value) : null)}
-                  className={`px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                  className={`cardboard-input px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                     theme === 'light'
                       ? 'bg-white border border-gray-300 text-gray-900'
                       : 'bg-black border border-zinc-700 text-gray-200'
@@ -4090,19 +4088,10 @@ export default function ColorScaleEditor() {
                   disabled={selectedHarmoniousFamilies.size === 0}
                   variant="solid"
                   size="3"
-                  style={selectedHarmoniousFamilies.size === 0 && theme === 'dark' ? {
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    color: 'rgba(255, 255, 255, 0.35)',
-                    opacity: 1
-                  } : undefined}
-                  className={`${
-                    selectedHarmoniousFamilies.size === 0
-                      ? theme === 'light'
-                        ? '!bg-gray-400 !text-gray-800 cursor-not-allowed opacity-50'
-                        : 'cursor-not-allowed'
-                      : theme === 'light'
-                        ? '!bg-gray-1100 hover:!bg-gray-1000 !text-gray-100'
-                        : '!bg-gray-200 hover:!bg-gray-600 !text-gray-1200'
+                  className={`cardboard-primary ${
+                    theme === 'light'
+                      ? '!bg-gray-1100 !text-gray-100'
+                      : '!bg-gray-200 !text-gray-1200'
                   }`}
                 >
                   Preview colors
@@ -4169,10 +4158,10 @@ export default function ColorScaleEditor() {
                       onClick={generateHarmoniousColors}
                       variant="soft"
                       size="3"
-                      className={`${
+                      className={`cardboard-secondary ${
                         theme === 'light'
-                          ? '!bg-gray-400 hover:!bg-gray-300 !text-gray-1100'
-                          : '!bg-gray-1000 hover:!bg-gray-900 !text-white'
+                          ? '!bg-gray-400 !text-gray-1100'
+                          : '!bg-gray-1000 !text-white'
                       }`}
                     >
                       Regenerate All
@@ -4182,19 +4171,10 @@ export default function ColorScaleEditor() {
                       disabled={selectedPreviews.size === 0}
                       variant="solid"
                       size="3"
-                      style={selectedPreviews.size === 0 && theme === 'dark' ? {
-                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                        color: 'rgba(255, 255, 255, 0.35)',
-                        opacity: 1
-                      } : undefined}
-                      className={`${
-                        selectedPreviews.size === 0
-                          ? theme === 'light'
-                            ? '!bg-gray-400 !text-gray-800 cursor-not-allowed opacity-50'
-                            : 'cursor-not-allowed'
-                          : theme === 'light'
-                            ? '!bg-gray-1100 hover:!bg-gray-1000 !text-gray-100'
-                            : '!bg-gray-200 hover:!bg-gray-600 !text-gray-1200'
+                      className={`cardboard-primary ${
+                        theme === 'light'
+                          ? '!bg-gray-1100 !text-gray-100'
+                          : '!bg-gray-200 !text-gray-1200'
                       }`}
                     >
                       Add Selected ({selectedPreviews.size})
@@ -4224,7 +4204,7 @@ export default function ColorScaleEditor() {
                             >
                               <div
                                 onClick={() => togglePreviewSelection(family, optionIndex)}
-                                className={`w-40 flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                                className={`cardboard-small-button w-40 flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
                                   isSelected
                                     ? theme === 'light'
                                       ? 'bg-gray-200 border-2 border-gray-900'
