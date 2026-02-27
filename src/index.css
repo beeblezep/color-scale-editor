@@ -33,6 +33,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+p {
+  font-family: "JetBrains Mono", monospace;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
@@ -277,6 +284,43 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 }
 
 /* ============================================================
+   Ghost Button (variant="ghost") - Minimal cardboard style
+   ============================================================ */
+
+/* Ghost Button - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-ghost {
+  border-radius: 2px !important;
+  transition: background-color 0.15s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-ghost:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Ghost Button - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-ghost,
+.radix-themes[class*="dark"] button.rt-Button.cardboard-ghost,
+[data-is-root-theme="true"][data-appearance="dark"] button.rt-Button.cardboard-ghost,
+.dark .radix-themes button.rt-Button.cardboard-ghost {
+  border-radius: 2px !important;
+  transition: background-color 0.15s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.radix-themes.dark button.rt-Button.cardboard-ghost:hover:not(:disabled),
+.radix-themes[class*="dark"] button.rt-Button.cardboard-ghost:hover:not(:disabled),
+.dark .radix-themes button.rt-Button.cardboard-ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ============================================================
    Panel/Container Styling - Cardboard cutout aesthetic
    ============================================================ */
 
@@ -453,4 +497,21 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 .rt-SegmentedControlItem {
   font-family: 'JetBrains Mono', monospace !important;
   font-weight: 500 !important;
+}
+
+/* ============================================================
+   Text Selection Styling - Better visibility in dark mode
+   ============================================================ */
+
+/* Light mode selection */
+::selection {
+  background-color: rgba(0, 0, 0, 0.2);
+  color: inherit;
+}
+
+/* Dark mode selection */
+.dark ::selection,
+[data-is-root-theme="true"][data-appearance="dark"] ::selection {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
 }
