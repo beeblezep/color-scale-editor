@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,6 +10,12 @@
   }
   .font-fraunces {
     font-family: 'Fraunces', serif;
+  }
+  .font-dm-mono {
+    font-family: 'DM Mono', monospace;
+  }
+  .font-jetbrains-mono {
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
@@ -27,7 +33,485 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+p {
+  font-family: "JetBrains Mono", monospace;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Override Radix UI accent color for checkboxes and switches - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) {
+  --accent-9: #1c1c1c !important;
+  --accent-10: #000000 !important;
+  --gray-9: #1c1c1c !important;
+  --gray-10: #000000 !important;
+}
+
+/* Dark mode: lighter accent for switches and other components */
+.radix-themes.dark,
+.radix-themes[class*="dark"],
+[data-is-root-theme="true"][data-appearance="dark"],
+.dark .radix-themes {
+  --accent-9: #b7b7b7 !important;
+  --gray-9: #b7b7b7 !important;
+}
+
+/* Override for regular checkboxes in dark mode */
+.radix-themes.dark [data-checkbox-type="regular"],
+.dark .radix-themes [data-checkbox-type="regular"],
+.dark [data-checkbox-type="regular"] {
+  --accent-9: #1c1c1c !important;
+  --gray-9: #1c1c1c !important;
+}
+
+/* Regular checkboxes - Light mode */
+.radix-themes:not(.dark) button.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+.radix-themes:not(.dark) .rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+button.rt-reset.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"]:not(.dark *) {
+  background-color: #1c1c1c !important;
+  border-color: #1c1c1c !important;
+}
+
+/* Regular checkboxes - Dark mode */
+.radix-themes.dark button.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+.dark .radix-themes .rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"],
+.dark button.rt-reset.rt-CheckboxButton[data-checkbox-type="regular"][data-state="checked"] {
+  background-color: #1c1c1c !important;
+  border-color: #1c1c1c !important;
+}
+
+/* Swatch checkboxes - Light mode (customize this) */
+.radix-themes:not(.dark) button.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+.radix-themes:not(.dark) .rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+button.rt-reset.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"]:not(.dark *) {
+  background-color: #1c1c1c !important;
+  border-color: #1c1c1c !important;
+}
+
+/* Swatch checkboxes - Dark mode (customize this) */
+.radix-themes.dark button.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+.dark .radix-themes .rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"],
+.dark button.rt-reset.rt-CheckboxButton[data-checkbox-type="swatch"][data-state="checked"] {
+  background-color: #b7b7b7 !important;
+  border-color: #b7b7b7 !important;
+}
+
+/* Don't apply to unchecked state */
+button.rt-CheckboxButton[data-state="unchecked"] {
+  background-color: transparent !important;
+}
+
+/* ============================================================
+   Cardboard Cutout Theme - Primary Button Styling
+   ============================================================ */
+
+/* Cardboard cutout design tokens */
+:root {
+  /* Primary button accent (charcoal, no hue) */
+  --btn-primary-bg-light: var(--gray-12);           /* Maps to gray-1100 */
+  --btn-primary-bg-dark: var(--gray-2);             /* Maps to gray-200 */
+  --btn-primary-border-light: var(--gray-12);
+  --btn-primary-border-dark: var(--gray-1);
+  --btn-primary-text: var(--gray-1);                /* White text */
+
+  /* Shadows - hard offset for "pinned to board" feel */
+  --shadow-btn-primary: 4px 4px 0px currentColor;
+  --shadow-btn-primary-opacity: 0.4;
+}
+
+/* Primary Button (variant="solid") - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-primary {
+  border: 2px solid #1c1c1c !important;
+  border-radius: 2px !important;                     /* Crisp, not pill-shaped */
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 0.07s ease, box-shadow 0.07s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Primary Button hover - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-primary:hover:not(:disabled) {
+  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.3) !important;
+  transform: translate(-0.3px, -0.3px) !important;
+}
+
+/* Primary Button active (press effect) - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-primary:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: none !important;
+}
+
+/* Primary Button - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-primary,
+.radix-themes[class*="dark"] button.rt-Button.cardboard-primary,
+[data-is-root-theme="true"][data-appearance="dark"] button.rt-Button.cardboard-primary,
+.dark .radix-themes button.rt-Button.cardboard-primary {
+  border: 2px solid #0a0a0a !important;
+  border-radius: 2px !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.6) !important;
+  transition: transform 0.07s ease, box-shadow 0.07s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Primary Button hover - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-primary:hover:not(:disabled),
+.radix-themes[class*="dark"] button.rt-Button.cardboard-primary:hover:not(:disabled),
+.dark .radix-themes button.rt-Button.cardboard-primary:hover:not(:disabled) {
+  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.7) !important;
+  transform: translate(-0.3px, -0.3px) !important;
+}
+
+/* Primary Button active (press effect) - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-primary:active:not(:disabled),
+.radix-themes[class*="dark"] button.rt-Button.cardboard-primary:active:not(:disabled),
+.dark .radix-themes button.rt-Button.cardboard-primary:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: none !important;
+}
+
+/* Primary Button disabled state - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-primary:disabled {
+  background-color: #d4d4d4 !important;
+  color: #737373 !important;
+  border-color: #a3a3a3 !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.2) !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+
+/* Primary Button disabled state - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-primary:disabled,
+.radix-themes[class*="dark"] button.rt-Button.cardboard-primary:disabled,
+.dark .radix-themes button.rt-Button.cardboard-primary:disabled {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.4) !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+
+/* ============================================================
+   Secondary Button (variant="soft") - Lighter cardboard style
+   ============================================================ */
+
+/* Secondary Button - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-secondary {
+  border: 1.5px solid #888888 !important;
+  border-radius: 2px !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.07s ease, box-shadow 0.07s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Secondary Button hover - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-secondary:hover:not(:disabled) {
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.3) !important;
+  transform: translate(-0.3px, -0.3px) !important;
+}
+
+/* Secondary Button active (press effect) - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-secondary:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: none !important;
+}
+
+/* Secondary Button - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-secondary,
+.radix-themes[class*="dark"] button.rt-Button.cardboard-secondary,
+[data-is-root-theme="true"][data-appearance="dark"] button.rt-Button.cardboard-secondary,
+.dark .radix-themes button.rt-Button.cardboard-secondary {
+  border: 1.5px solid #555555 !important;
+  border-radius: 2px !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5) !important;
+  transition: transform 0.07s ease, box-shadow 0.07s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Secondary Button hover - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-secondary:hover:not(:disabled),
+.radix-themes[class*="dark"] button.rt-Button.cardboard-secondary:hover:not(:disabled),
+.dark .radix-themes button.rt-Button.cardboard-secondary:hover:not(:disabled) {
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.6) !important;
+  transform: translate(-0.3px, -0.3px) !important;
+}
+
+/* Secondary Button active (press effect) - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-secondary:active:not(:disabled),
+.radix-themes[class*="dark"] button.rt-Button.cardboard-secondary:active:not(:disabled),
+.dark .radix-themes button.rt-Button.cardboard-secondary:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: none !important;
+}
+
+/* Secondary Button disabled state - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-secondary:disabled {
+  background-color: #e5e5e5 !important;
+  color: #8a8a8a !important;
+  border-color: #b8b8b8 !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.15) !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+
+/* Secondary Button disabled state - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-secondary:disabled,
+.radix-themes[class*="dark"] button.rt-Button.cardboard-secondary:disabled,
+.dark .radix-themes button.rt-Button.cardboard-secondary:disabled {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3) !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+
+/* ============================================================
+   Ghost Button (variant="ghost") - Minimal cardboard style
+   ============================================================ */
+
+/* Ghost Button - Light mode */
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-ghost {
+  border-radius: 2px !important;
+  transition: background-color 0.15s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-ghost:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Ghost Button - Dark mode */
+.radix-themes.dark button.rt-Button.cardboard-ghost,
+.radix-themes[class*="dark"] button.rt-Button.cardboard-ghost,
+[data-is-root-theme="true"][data-appearance="dark"] button.rt-Button.cardboard-ghost,
+.dark .radix-themes button.rt-Button.cardboard-ghost {
+  border-radius: 2px !important;
+  transition: background-color 0.15s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.radix-themes.dark button.rt-Button.cardboard-ghost:hover:not(:disabled),
+.radix-themes[class*="dark"] button.rt-Button.cardboard-ghost:hover:not(:disabled),
+.dark .radix-themes button.rt-Button.cardboard-ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ============================================================
+   Panel/Container Styling - Cardboard cutout aesthetic
+   ============================================================ */
+
+/* Panel containers - Light mode */
+.cardboard-panel {
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-radius: 3px !important;  /* Crisp, not overly rounded */
+}
+
+/* Light mode panels */
+.cardboard-panel {
+  border-color: #888888 !important;
+  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Dark mode panels */
+.dark .cardboard-panel,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-panel {
+  border-color: #555555 !important;
+  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================================
+   Icon Button Styling - Lightest cardboard treatment
+   ============================================================ */
+
+/* Icon buttons - Light mode */
+.cardboard-icon-button {
+  border-width: 1px !important;
+  border-radius: 2px !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2) !important;
+  transition: transform 0.07s ease, box-shadow 0.07s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-weight: 600 !important;
+}
+
+/* Icon button hover - Light mode */
+.cardboard-icon-button:hover {
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.25) !important;
+  transform: translate(-0.2px, -0.2px) !important;
+}
+
+/* Icon button active (press effect) - Light mode */
+.cardboard-icon-button:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: none !important;
+}
+
+/* Icon buttons - Dark mode */
+.dark .cardboard-icon-button,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-icon-button {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Icon button hover - Dark mode */
+.dark .cardboard-icon-button:hover,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-icon-button:hover {
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5) !important;
+  transform: translate(-0.2px, -0.2px) !important;
+}
+
+/* Icon button active - Dark mode */
+.dark .cardboard-icon-button:active,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-icon-button:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   In-Panel Elements - Most subtle cardboard treatment
+   ============================================================ */
+
+/* Input fields */
+.cardboard-input {
+  border-radius: 2px !important;
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.12) !important;
+  transition: box-shadow 0.07s ease !important;
+}
+
+.cardboard-input:focus {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Dark mode inputs */
+.dark .cardboard-input,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-input {
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .cardboard-input:focus,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-input:focus {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Small buttons (harmonize, etc) */
+.cardboard-small-button {
+  border-width: 1px !important;
+  border-radius: 2px !important;
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.15) !important;
+  transition: transform 0.07s ease, box-shadow 0.07s ease !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+.cardboard-small-button:hover {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2) !important;
+  transform: translate(-0.1px, -0.1px) !important;
+}
+
+.cardboard-small-button:active {
+  transform: translate(0.5px, 0.5px) !important;
+  box-shadow: none !important;
+}
+
+/* Dark mode small buttons */
+.dark .cardboard-small-button,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-small-button {
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.35) !important;
+}
+
+.dark .cardboard-small-button:hover,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-small-button:hover {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.45) !important;
+  transform: translate(-0.1px, -0.1px) !important;
+}
+
+.dark .cardboard-small-button:active,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-small-button:active {
+  transform: translate(0.5px, 0.5px) !important;
+  box-shadow: none !important;
+}
+
+/* Arrow buttons (up/down) - part of a button group */
+.cardboard-button-group {
+  border-radius: 2px !important;
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.15) !important;
+}
+
+.dark .cardboard-button-group,
+[data-is-root-theme="true"][data-appearance="dark"] .cardboard-button-group {
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.35) !important;
+}
+
+.cardboard-arrow-button {
+  transition: transform 0.07s ease !important;
+}
+
+.cardboard-arrow-button:hover:not(:disabled) {
+  transform: translate(-0.1px, -0.1px) !important;
+}
+
+.cardboard-arrow-button:active:not(:disabled) {
+  transform: translate(0.5px, 0.5px) !important;
+}
+
+/* ============================================================
+   Swatch Styling - Only border radius, no shadows
+   ============================================================ */
+
+/* Swatches - 3px border radius only */
+.cardboard-swatch {
+  border-radius: 3px !important;
+}
+
+/* ============================================================
+   Segmented Control Styling - JetBrains Mono font
+   ============================================================ */
+
+/* Apply JetBrains Mono to all Segmented Control items */
+.rt-SegmentedControlRoot {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+.rt-SegmentedControlItem {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-weight: 500 !important;
+}
+
+/* ============================================================
+   Text Selection Styling - Better visibility in dark mode
+   ============================================================ */
+
+/* Light mode selection */
+::selection {
+  background-color: rgba(0, 0, 0, 0.2);
+  color: inherit;
+}
+
+/* Dark mode selection */
+.dark ::selection,
+[data-is-root-theme="true"][data-appearance="dark"] ::selection {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
 }
