@@ -15,6 +15,7 @@ export default function ColorScaleEditor() {
       id: 0,
       name: 'gray',
       hex: '#808080', // 50% gray
+      gamut: 'srgb', // Color space: 'srgb' or 'p3'
       isGrayScale: true,
       isExpanded: false,
       lightSurface: false,
@@ -63,11 +64,21 @@ export default function ColorScaleEditor() {
   const [theme, setTheme] = useState('light'); // Theme mode: 'light' or 'dark'
   const [viewMode, setViewMode] = useState('default'); // View mode: 'default' or 'simple'
   const [displayMode, setDisplayMode] = useState('color'); // Display mode: 'color' or 'luminance'
+  const [globalGamut, setGlobalGamut] = useState('srgb'); // Color space: 'srgb' or 'p3'
+  const [supportsP3, setSupportsP3] = useState(false); // Browser P3 capability detection
+  const [showP3Warning, setShowP3Warning] = useState(false); // First-time P3 mode warning
 
   // Sync swatch background with theme changes
   useEffect(() => {
     setSwatchBackground(theme === 'light' ? '#ffffff' : '#000000');
   }, [theme]);
+
+  // Detect P3 color space support
+  useEffect(() => {
+    const supported = CSS.supports('color', 'color(display-p3 1 0 0)');
+    setSupportsP3(supported);
+  }, []);
+
   const [contrastCheck, setContrastCheck] = useState('off'); // Contrast check: 'off', 'aa', or 'apca'
   const [contrastColor1, setContrastColor1] = useState('#ffffff'); // First custom contrast test color (default white)
   const [contrastColor2, setContrastColor2] = useState('#000000'); // Second custom contrast test color (default black)
@@ -245,6 +256,169 @@ export default function ColorScaleEditor() {
 
     // Return absolute value as Lc (contrast lightness)
     return Math.abs(SAPC * 100);
+  };
+
+  // ========== P3 Wide Gamut Color Space Conversions ==========
+
+  // Convert sRGB component (0-1) to linear RGB
+  const srgbToLinear = (c) => {
+    if (c <= 0.04045) {
+      return c / 12.92;
+    }
+    return Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+
+  // Convert linear RGB component (0-1) to sRGB
+  const linearToSrgb = (c) => {
+    if (c <= 0.0031308) {
+      return 12.92 * c;
+    }
+    return 1.055 * Math.pow(c, 1/2.4) - 0.055;
+  };
+
+  // Convert linear sRGB (0-1) to XYZ (D65 illuminant)
+  const linearSrgbToXYZ = (r, g, b) => {
+    const x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    const y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    const z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+    return { x, y, z };
+  };
+
+  // Convert XYZ (D65) to linear sRGB (0-1)
+  const xyzToLinearSrgb = (x, y, z) => {
+    const r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
+    const g = x * -0.9692660 + y * 1.8760108 + z * 0.0415560;
+    const b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
+    return { r, g, b };
+  };
+
+  // Convert XYZ (D65) to linear Display P3 (0-1)
+  const xyzToLinearP3 = (x, y, z) => {
+    const r = x * 2.4934969119 + y * -0.9313836179 + z * -0.4027107845;
+    const g = x * -0.8294889696 + y * 1.7626640603 + z * 0.0236246858;
+    const b = x * 0.0358458302 + y * -0.0761723893 + z * 0.9568845240;
+    return { r, g, b };
+  };
+
+  // Convert linear Display P3 (0-1) to XYZ (D65)
+  const linearP3ToXYZ = (r, g, b) => {
+    const x = r * 0.4865709486 + g * 0.2656676932 + b * 0.1982172852;
+    const y = r * 0.2289745641 + g * 0.6917385218 + b * 0.0792869141;
+    const z = r * 0.0000000000 + g * 0.0451133819 + b * 1.0439443689;
+    return { x, y, z };
+  };
+
+  // Convert Display P3 component (0-1) to linear P3
+  const p3ToLinear = (c) => {
+    if (c <= 0.04045) {
+      return c / 12.92;
+    }
+    return Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+
+  // Convert linear P3 component (0-1) to Display P3
+  const linearToP3 = (c) => {
+    if (c <= 0.0031308) {
+      return 12.92 * c;
+    }
+    return 1.055 * Math.pow(c, 1/2.4) - 0.055;
+  };
+
+  // Complete pipeline: sRGB (0-255) to Display P3 (0-1)
+  const srgbToP3 = (r, g, b) => {
+    // sRGB → Linear sRGB
+    const linearR = srgbToLinear(r / 255);
+    const linearG = srgbToLinear(g / 255);
+    const linearB = srgbToLinear(b / 255);
+
+    // Linear sRGB → XYZ
+    const xyz = linearSrgbToXYZ(linearR, linearG, linearB);
+
+    // XYZ → Linear P3
+    const linearP3 = xyzToLinearP3(xyz.x, xyz.y, xyz.z);
+
+    // Linear P3 → P3
+    return {
+      r: Math.max(0, Math.min(1, linearToP3(linearP3.r))),
+      g: Math.max(0, Math.min(1, linearToP3(linearP3.g))),
+      b: Math.max(0, Math.min(1, linearToP3(linearP3.b)))
+    };
+  };
+
+  // Complete pipeline: Display P3 (0-1) to sRGB (0-255)
+  const p3ToSrgb = (r, g, b) => {
+    // P3 → Linear P3
+    const linearR = p3ToLinear(r);
+    const linearG = p3ToLinear(g);
+    const linearB = p3ToLinear(b);
+
+    // Linear P3 → XYZ
+    const xyz = linearP3ToXYZ(linearR, linearG, linearB);
+
+    // XYZ → Linear sRGB
+    const linearSrgb = xyzToLinearSrgb(xyz.x, xyz.y, xyz.z);
+
+    // Linear sRGB → sRGB
+    return {
+      r: Math.max(0, Math.min(1, linearToSrgb(linearSrgb.r))),
+      g: Math.max(0, Math.min(1, linearToSrgb(linearSrgb.g))),
+      b: Math.max(0, Math.min(1, linearToSrgb(linearSrgb.b)))
+    };
+  };
+
+  // Convert hex to CSS color() syntax for Display P3
+  const hexToP3CSS = (hex, gamut = 'srgb') => {
+    if (gamut === 'srgb') {
+      return hex;
+    }
+
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+
+    const p3 = srgbToP3(rgb.r, rgb.g, rgb.b);
+    return `color(display-p3 ${p3.r.toFixed(4)} ${p3.g.toFixed(4)} ${p3.b.toFixed(4)})`;
+  };
+
+  // Convert P3 (0-1) to hex
+  const p3ToHex = (r, g, b) => {
+    const srgb = p3ToSrgb(r, g, b);
+    return rgbToHex(
+      Math.round(srgb.r * 255),
+      Math.round(srgb.g * 255),
+      Math.round(srgb.b * 255)
+    );
+  };
+
+  // Check if RGB values (0-1) are outside sRGB gamut
+  const isOutsideSRGB = (r, g, b) => {
+    return r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1;
+  };
+
+  // Clip RGB values to gamut (0-1)
+  const clipToGamut = (r, g, b) => {
+    return {
+      r: Math.max(0, Math.min(1, r)),
+      g: Math.max(0, Math.min(1, g)),
+      b: Math.max(0, Math.min(1, b))
+    };
+  };
+
+  // ========== End P3 Conversions ==========
+
+  // Helper function to get swatch background color based on display mode and gamut
+  const getSwatchBackground = (hex, scaleGamut, scaleId) => {
+    // Handle luminance mode (desaturation)
+    if (desaturatedScales.has(scaleId)) {
+      return hexToGrayscale(hex);
+    }
+
+    // Handle P3 rendering
+    if (globalGamut === 'p3') {
+      return hexToP3CSS(hex, scaleGamut);
+    }
+
+    // Default sRGB hex
+    return hex;
   };
 
   // Get friendly name for common colors, otherwise return hex
@@ -1311,6 +1485,7 @@ export default function ColorScaleEditor() {
         id: nextColorId + scaleIndex,
         name: scaleName,
         hex: hex,
+        gamut: 'srgb',
         isExpanded: false,
         lightSurface: false,
         useCustomBezier: false,
@@ -1524,6 +1699,7 @@ export default function ColorScaleEditor() {
       id: nextColorId,
       name: scaleName,
       hex: hex,
+      gamut: 'srgb',
       isExpanded: false,
       lightSurface: false,
       useCustomBezier: false,
@@ -1680,6 +1856,12 @@ export default function ColorScaleEditor() {
     ));
   };
 
+  const updateColorScaleGamut = (id, gamut) => {
+    setColorScales(colorScales.map(cs =>
+      cs.id === id ? { ...cs, gamut: gamut } : cs
+    ));
+  };
+
   const toggleAdvancedSettings = (id) => {
     setColorScales(colorScales.map(cs =>
       cs.id === id ? { ...cs, showAdvancedSettings: !cs.showAdvancedSettings } : cs
@@ -1827,13 +2009,28 @@ export default function ColorScaleEditor() {
 
       Object.entries(colorData).forEach(([colorName, swatches], index) => {
         // Get all swatch entries and calculate their L* values
+        let detectedGamut = 'srgb';
         const swatchEntries = Object.entries(swatches)
           .map(([step, data]) => {
-            const rgb = hexToRgb(data.value);
+            let hex, gamut = 'srgb';
+
+            // Check if value is P3 format: color(display-p3 r g b)
+            const p3Match = data.value.match(/color\(display-p3\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/);
+            if (p3Match) {
+              const [_, r, g, b] = p3Match;
+              hex = p3ToHex(parseFloat(r), parseFloat(g), parseFloat(b));
+              gamut = 'p3';
+              detectedGamut = 'p3';
+            } else {
+              // Standard hex value
+              hex = data.value;
+            }
+
+            const rgb = hexToRgb(hex);
             const lstar = rgbToLstar(rgb.r, rgb.g, rgb.b);
             return {
               step: parseInt(step),
-              hex: data.value,
+              hex: hex,
               lstar: lstar
             };
           })
@@ -1861,6 +2058,7 @@ export default function ColorScaleEditor() {
           id: nextId + index,
           name: colorName,
           hex: baseHex,
+          gamut: detectedGamut,
           isSingleColor: false,
           lockKeyColor: false,
           swatchCountOverride: swatchCount,
@@ -2128,8 +2326,15 @@ export default function ColorScaleEditor() {
       if (cs.isSingleColor) {
         // Single color: export as color.name without step number
         tokens.color[cs.name] = {
-          value: cs.hex,
-          type: "color"
+          value: cs.gamut === 'p3' ? hexToP3CSS(cs.hex, 'p3') : cs.hex,
+          type: "color",
+          ...(cs.gamut === 'p3' && {
+            $extensions: {
+              'com.figma': {
+                colorSpace: 'display-p3'
+              }
+            }
+          })
         };
       } else {
         // Regular scale generation
@@ -2196,8 +2401,15 @@ export default function ColorScaleEditor() {
         tokens.color[cs.name] = {};
         scale.forEach(swatch => {
           tokens.color[cs.name][swatch.step] = {
-            value: swatch.hex,
-            type: "color"
+            value: cs.gamut === 'p3' ? hexToP3CSS(swatch.hex, 'p3') : swatch.hex,
+            type: "color",
+            ...(cs.gamut === 'p3' && {
+              $extensions: {
+                'com.figma': {
+                  colorSpace: 'display-p3'
+                }
+              }
+            })
           };
         });
       }
@@ -2224,7 +2436,7 @@ export default function ColorScaleEditor() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className={`text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>Primitive color builder</h1>
-            <p className={theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}>Design harmonious app color palettes grounded in color theory</p>
+            <p className={theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}>Design harmonious app color palettes grounded in human color perception</p>
           </div>
 
           {/* Social Media Links */}
@@ -2361,15 +2573,15 @@ export default function ColorScaleEditor() {
             <div className="flex items-center gap-2">
               <Tooltip content={
                 <div className="p-2 max-w-xs text-xs">
-                  <div className={`font-semibold mb-2 ${theme === 'light' ? 'text-white' : 'text-gray-900'}`}>Contrast Checker</div>
+                  <div className={`font-semibold mb-2 ${theme === 'light' ? 'text-white' : 'text-gray-1200'}`}>Contrast Checker</div>
                   <div className="space-y-2">
                     <div>
-                      <span className={`font-medium ${theme === 'light' ? 'text-gray-100' : 'text-gray-800'}`}>AA:</span>
-                      <span className={theme === 'light' ? 'text-gray-300' : 'text-gray-700'}> WCAG 2.0 contrast ratios (4.5:1 for normal text)</span>
+                      <span className={`font-medium ${theme === 'light' ? 'text-gray-100' : 'text-gray-1200'}`}>AA:</span>
+                      <span className={theme === 'light' ? 'text-gray-300' : 'text-gray-1200'}> WCAG 2.0 contrast ratios (4.5:1 for normal text)</span>
                     </div>
                     <div>
-                      <span className={`font-medium ${theme === 'light' ? 'text-gray-100' : 'text-gray-800'}`}>APCA:</span>
-                      <span className={theme === 'light' ? 'text-gray-300' : 'text-gray-700'}> Advanced Perceptual Contrast Algorithm (Lc 60+ for content text)</span>
+                      <span className={`font-medium ${theme === 'light' ? 'text-gray-100' : 'text-gray-1200'}`}>APCA:</span>
+                      <span className={theme === 'light' ? 'text-gray-300' : 'text-gray-1200'}> Advanced Perceptual Contrast Algorithm (Lc 60+ for content text)</span>
                     </div>
                   </div>
                 </div>
@@ -2593,6 +2805,34 @@ export default function ColorScaleEditor() {
             }}
           >
             <div className="pt-6 space-y-6">
+              {/* Color Space Toggle (beta) */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <label className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                    Color Space (beta)
+                  </label>
+                  <Tooltip content="This beta feature is mainly useful for displaying and exporting P3 colors from external sources, rather than creating new P3 colors within the editor.">
+                    <SegmentedControl.Root
+                      value={globalGamut}
+                      onValueChange={setGlobalGamut}
+                      size="1"
+                    >
+                      <SegmentedControl.Item value="srgb">sRGB</SegmentedControl.Item>
+                      <SegmentedControl.Item value="p3">
+                        Display P3
+                        {!supportsP3 && <span className="text-xs opacity-50 ml-1">(unsupported)</span>}
+                      </SegmentedControl.Item>
+                    </SegmentedControl.Root>
+                  </Tooltip>
+                </div>
+                {/* P3 Browser Warning */}
+                {globalGamut === 'p3' && !supportsP3 && (
+                  <div className={`px-3 py-2 rounded text-xs ${theme === 'light' ? 'bg-orange-100 text-orange-900' : 'bg-orange-900/30 text-orange-300'}`}>
+                    ⚠ Display P3 not supported in this browser. Colors shown in sRGB.
+                  </div>
+                )}
+              </div>
+
               {/* P1, P2, L* Range - Horizontal Layout */}
               <div className="flex items-center gap-4">
                 {/* P1 */}
@@ -2918,6 +3158,12 @@ export default function ColorScaleEditor() {
                               : 'bg-black border border-zinc-700 focus:border-zinc-600'
                           }`}
                         />
+                        {/* P3 Badge */}
+                        {globalGamut === 'p3' && cs.gamut === 'p3' && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-600 text-white text-[10px] font-mono font-medium">
+                            P3
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <label className={`font-jetbrains-mono text-xs font-medium ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
@@ -3490,7 +3736,7 @@ export default function ColorScaleEditor() {
                         <div
                           className="h-14 cardboard-swatch relative"
                           style={{
-                            background: desaturatedScales.has(cs.id) ? hexToGrayscale(cs.hex) : cs.hex,
+                            background: getSwatchBackground(cs.hex, cs.gamut, cs.id),
                             border: showSwatchBorders ? '0.5px solid rgba(128, 128, 128, 0.5)' : 'none'
                           }}
                         >
@@ -3578,7 +3824,7 @@ export default function ColorScaleEditor() {
                               <div
                                 className="h-14 cardboard-swatch relative"
                                 style={{
-                                  background: desaturatedScales.has(cs.id) ? hexToGrayscale(v.hex) : v.hex,
+                                  background: getSwatchBackground(v.hex, cs.gamut, cs.id),
                                   border: showSwatchBorders ? '0.5px solid rgba(128, 128, 128, 0.5)' : 'none'
                                 }}
                               >
@@ -3687,8 +3933,10 @@ export default function ColorScaleEditor() {
                                       }
                                     }}
                                     onClick={(e) => e.stopPropagation()}
-                                    className={`w-full px-1 py-0.5 rounded text-center font-dm-mono bg-transparent border border-transparent hover:border-current focus:outline-none focus:border-current ${
-                                      theme === 'light' ? 'text-neutral-900' : 'text-gray-400'
+                                    className={`w-full px-1 py-0.5 rounded text-center font-dm-mono bg-transparent border focus:outline-none ${
+                                      theme === 'light'
+                                        ? 'text-neutral-900 border-transparent hover:border-neutral-900 focus:border-neutral-900'
+                                        : 'text-gray-400 border-transparent hover:border-gray-700 focus:border-gray-700'
                                     }`}
                                   />
                                   {v.isCustom && (
@@ -3887,20 +4135,8 @@ export default function ColorScaleEditor() {
         {/* Add color scale and Add color families buttons */}
         <div
           ref={addColorScaleButtonRef}
-          className="flex gap-3 items-center mb-6"
+          className="flex gap-3 items-center mb-6 justify-end"
         >
-          <Button
-            onClick={addColorScale}
-            variant="solid"
-            size="3"
-            className={`cardboard-primary ${
-              theme === 'light'
-                ? '!bg-gray-1100 !text-gray-100'
-                : '!bg-gray-200 !text-gray-1200'
-            }`}
-          >
-            + Add color scale
-          </Button>
           {colorScales.length > 0 && (
             !hasAnySaturatedColors() ? (
               <Tooltip content="Add a color with at least some saturation to add a color family">
@@ -3940,6 +4176,18 @@ export default function ColorScaleEditor() {
               </Button>
             )
           )}
+                    <Button
+            onClick={addColorScale}
+            variant="solid"
+            size="3"
+            className={`cardboard-primary ${
+              theme === 'light'
+                ? '!bg-gray-1100 !text-gray-100'
+                : '!bg-gray-200 !text-gray-1200'
+            }`}
+          >
+            + Add color scale
+          </Button>
         </div>
 
         <AnimatePresence mode="wait">
@@ -3977,7 +4225,7 @@ export default function ColorScaleEditor() {
               aria-labelledby="color-families-heading"
             >
             <div className="flex items-center justify-between mb-3">
-              <h3 id="color-families-heading" className={`text-lg font-semibold ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
+              <h3 id="color-families-heading" className={`font-jetbrains-mono text-lg font-semibold ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
                 Add color families
               </h3>
               <button
@@ -3992,12 +4240,12 @@ export default function ColorScaleEditor() {
                 <span className="material-symbols-rounded text-[20px]">close</span>
               </button>
             </div>
-            <p className={`text-sm mb-4 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
+            <p className={`font-jetbrains-mono text-sm mb-4 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
             </p>
             <div className="flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-[300px]">
-                <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                <label className={`font-jetbrains-mono block text-xs font-medium uppercase tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Select Color Families to Generate
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -4047,19 +4295,19 @@ export default function ColorScaleEditor() {
                         className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
                         style={{ backgroundColor: family.color }}
                       />
-                      <span className={`text-sm ${theme === 'light' ? 'text-neutral-1100' : 'text-gray-200'}`}>{family.name}</span>
+                      <span className={`font-jetbrains-mono text-sm ${theme === 'light' ? 'text-neutral-1100' : 'text-gray-200'}`}>{family.name}</span>
                     </label>
                   ))}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className={`block text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
+                <label className={`font-jetbrains-mono block text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Base Color
                 </label>
                 <select
                   value={baseColorScaleId || ''}
                   onChange={(e) => setBaseColorScaleId(e.target.value ? parseInt(e.target.value) : null)}
-                  className={`cardboard-input px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                  className={`font-jetbrains-mono cardboard-input px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                     theme === 'light'
                       ? 'bg-white border border-gray-300 text-gray-900'
                       : 'bg-black border border-zinc-700 text-gray-200'
@@ -4079,7 +4327,7 @@ export default function ColorScaleEditor() {
                     onCheckedChange={setUseColorTheory}
                     size="1"
                   />
-                  <span className={`text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
+                  <span className={`font-jetbrains-mono text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
                     {useColorTheory ? 'Color Theory' : 'AI-based'}
                   </span>
                 </label>
@@ -4115,7 +4363,7 @@ export default function ColorScaleEditor() {
                     <div className={`absolute inset-0 border-4 rounded-full ${theme === 'light' ? 'border-gray-300' : 'border-zinc-700'}`}></div>
                     <div className="absolute inset-0 border-4 border-neutral-700 rounded-full border-t-transparent animate-spin"></div>
                   </div>
-                  <div className={`text-sm ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Generating harmonious colors...</div>
+                  <div className={`font-jetbrains-mono text-sm ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>Generating harmonious colors...</div>
                 </div>
               </div>
             </div>
@@ -4132,24 +4380,74 @@ export default function ColorScaleEditor() {
               }}
             >
               {!isGenerating && previewColorsByFamily && (
-                <div className={`p-4 rounded-lg ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-black border border-zinc-700'}`}>
-                  <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-                  <div className={`text-sm font-medium ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
+                <div className={`cardboard-panel p-4 ${theme === 'light' ? 'bg-white' : 'bg-black'}`}>
+                  <div className={`font-jetbrains-mono text-sm font-medium mb-4 ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
                     Preview Options - Select one or more from each family
                     {selectedPreviews.size > 0 && (
                       <span className="ml-2 text-neutral-600">({selectedPreviews.size} selected)</span>
                     )}
                   </div>
-                  <div className="flex gap-3 flex-shrink-0 items-center">
+                  <div className="flex flex-col gap-6 mb-4">
+                    {Object.entries(previewColorsByFamily).map(([family, options]) => (
+                      <div key={family} className="flex flex-col gap-2">
+                        <div className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
+                          {family}
+                        </div>
+                        <div className="flex gap-3 flex-wrap">
+                          {options.map((colorData, optionIndex) => {
+                            const selectionKey = `${family}-${optionIndex}`;
+                            const isSelected = selectedPreviews.has(selectionKey);
+
+                            // Handle both formats: string (API) or object (color theory)
+                            const hex = typeof colorData === 'string' ? colorData : colorData.hex;
+                            const method = typeof colorData === 'object' ? colorData.method : null;
+                            const description = typeof colorData === 'object' ? colorData.description : null;
+
+                            return (
+                              <Tooltip
+                                key={optionIndex}
+                                content={method ? `${method}: ${description}` : hex}
+                              >
+                                <div
+                                  onClick={() => togglePreviewSelection(family, optionIndex)}
+                                  className={`cardboard-small-button w-40 flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                                    isSelected
+                                      ? theme === 'light'
+                                        ? 'bg-gray-200 border-2 border-gray-900'
+                                        : 'bg-gray-1100 border-2 border-zinc-500'
+                                      : theme === 'light'
+                                        ? 'bg-white border-2 border-gray-300 hover:border-gray-400'
+                                        : 'bg-gray-1300 border-2 border-gray-1000 hover:border-gray-900'
+                                  }`}
+                                >
+                                  <div
+                                    className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-gray-900'}`}
+                                    style={{ backgroundColor: hex }}
+                                  />
+                                  {method && (
+                                    <div className={`font-jetbrains-mono text-[10px] font-medium text-center ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
+                                      {method}
+                                    </div>
+                                  )}
+                                  <div className={`font-jetbrains-mono text-xs ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{hex}</div>
+                                </div>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-3 justify-end items-center">
                     <Button
                       onClick={cancelPreview}
                       variant="ghost"
                       size="3"
                       style={{ padding: '10px 16px', margin: '0 8px 0 0' }}
-                      className={`!rounded-lg ${
+                      className={`cardboard-ghost ${
                         theme === 'light'
-                          ? '!text-gray-900 hover:!bg-gray-200 hover:!rounded-lg'
-                          : '!text-gray-400 hover:!bg-white hover:!bg-opacity-10 hover:!rounded-lg'
+                          ? '!text-gray-900'
+                          : '!text-gray-400'
                       }`}
                     >
                       Cancel
@@ -4181,58 +4479,6 @@ export default function ColorScaleEditor() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex flex-col gap-6">
-                  {Object.entries(previewColorsByFamily).map(([family, options]) => (
-                    <div key={family} className="flex flex-col gap-2">
-                      <div className={`text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
-                        {family}
-                      </div>
-                      <div className="flex gap-3 flex-wrap">
-                        {options.map((colorData, optionIndex) => {
-                          const selectionKey = `${family}-${optionIndex}`;
-                          const isSelected = selectedPreviews.has(selectionKey);
-
-                          // Handle both formats: string (API) or object (color theory)
-                          const hex = typeof colorData === 'string' ? colorData : colorData.hex;
-                          const method = typeof colorData === 'object' ? colorData.method : null;
-                          const description = typeof colorData === 'object' ? colorData.description : null;
-
-                          return (
-                            <Tooltip
-                              key={optionIndex}
-                              content={method ? `${method}: ${description}` : hex}
-                            >
-                              <div
-                                onClick={() => togglePreviewSelection(family, optionIndex)}
-                                className={`cardboard-small-button w-40 flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
-                                  isSelected
-                                    ? theme === 'light'
-                                      ? 'bg-gray-200 border-2 border-gray-900'
-                                      : 'bg-gray-1100 border-2 border-zinc-500'
-                                    : theme === 'light'
-                                      ? 'bg-white border-2 border-gray-300 hover:border-gray-400'
-                                      : 'bg-gray-1300 border-2 border-gray-1000 hover:border-gray-900'
-                                }`}
-                              >
-                                <div
-                                  className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-gray-900'}`}
-                                  style={{ backgroundColor: hex }}
-                                />
-                                {method && (
-                                  <div className={`text-[10px] font-medium text-center ${theme === 'light' ? 'text-neutral-1000' : 'text-gray-300'}`}>
-                                    {method}
-                                  </div>
-                                )}
-                                <div className={`text-xs font-mono ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>{hex}</div>
-                              </div>
-                            </Tooltip>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
               )}
             </div>
           </motion.div>
