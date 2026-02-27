@@ -555,3 +555,58 @@ input[type="range"]::-moz-range-thumb {
   background: #ffffff;
   border: 2px solid #ffffff;
 }
+
+/* ============================================================
+   Mobile Responsive Improvements
+   ============================================================ */
+
+/* Prevent horizontal overflow on mobile */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Better touch targets for mobile */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Ensure text inputs are at least 16px to prevent zoom on iOS */
+  input[type="text"],
+  input[type="number"] {
+    font-size: 16px !important;
+  }
+
+  /* Better spacing for mobile panels */
+  .cardboard-panel {
+    padding: 12px !important;
+  }
+
+  /* Adjust button text size on mobile */
+  .cardboard-primary,
+  .cardboard-secondary {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+
+  /* Ensure swatches don't overflow */
+  .cardboard-swatch {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  /* Further reduce spacing */
+  .cardboard-panel {
+    padding: 8px !important;
+  }
+
+  /* Make icon buttons slightly smaller on very small screens */
+  .cardboard-icon-button {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
