@@ -515,3 +515,43 @@ button.rt-CheckboxButton[data-state="unchecked"] {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
 }
+
+/* ============================================================
+   Range Input Styling - Custom thumb colors for theme
+   ============================================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) - Light mode */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #000000;
+  cursor: pointer;
+  border: 2px solid #000000;
+}
+
+/* Webkit browsers - Dark mode */
+.dark input[type="range"]::-webkit-slider-thumb,
+[data-is-root-theme="true"][data-appearance="dark"] input[type="range"]::-webkit-slider-thumb {
+  background: #ffffff;
+  border: 2px solid #ffffff;
+}
+
+/* Firefox - Light mode */
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #000000;
+  cursor: pointer;
+  border: 2px solid #000000;
+}
+
+/* Firefox - Dark mode */
+.dark input[type="range"]::-moz-range-thumb,
+[data-is-root-theme="true"][data-appearance="dark"] input[type="range"]::-moz-range-thumb {
+  background: #ffffff;
+  border: 2px solid #ffffff;
+}
