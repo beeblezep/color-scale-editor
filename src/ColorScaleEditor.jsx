@@ -2571,7 +2571,7 @@ export default function ColorScaleEditor() {
         {/* Header with Title and Social Links */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 pr-4">
-            <h1 className={`text-4xl md:text-6xl lg:text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>Primitive color builder</h1>
+            <h1 className={`text-4xl md:text-6xl lg:text-7xl font-bold mb-2 font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-warm-gray-200'}`}>Primitive color builder</h1>
             <p className={`max-w-3xl text-sm md:text-base ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>Humans aren't computers — so why design colors like we are? Build harmonious color palettes rooted in how we perceive color.</p>
           </div>
 
@@ -4367,8 +4367,8 @@ export default function ColorScaleEditor() {
             size="3"
             className={`cardboard-primary ${
               theme === 'light'
-                ? '!bg-gray-1100 !text-gray-100'
-                : '!bg-gray-200 !text-gray-1200'
+                ? '!bg-warm-gray-1000 !text-gray-100'
+                : '!bg-warm-gray-300 !text-gray-1200'
             }`}
           >
             + Add color scale
@@ -4523,8 +4523,8 @@ export default function ColorScaleEditor() {
                   size="3"
                   className={`cardboard-primary ${
                     theme === 'light'
-                      ? '!bg-gray-1100 !text-gray-100'
-                      : '!bg-gray-200 !text-gray-1200'
+                ? '!bg-warm-gray-1000 !text-gray-100'
+                : '!bg-warm-gray-300 !text-gray-1200'
                   }`}
                 >
                   Preview colors
@@ -4656,8 +4656,8 @@ export default function ColorScaleEditor() {
                       size="3"
                       className={`cardboard-primary ${
                         theme === 'light'
-                          ? '!bg-gray-1100 !text-gray-100'
-                          : '!bg-gray-200 !text-gray-1200'
+                          ? '!bg-warm-gray-1000 !text-gray-100'
+                          : '!bg-warm-gray-300 !text-gray-1200'
                       }`}
                     >
                       Add Selected ({selectedPreviews.size})
