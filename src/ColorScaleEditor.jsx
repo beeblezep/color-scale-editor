@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motionPresets } from './motionTokens';
 import { SegmentedControl, Theme, Switch, Tooltip, Checkbox, Button } from '@radix-ui/themes';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import { howToUseMarkdown } from './howToUseContent';
 
 export default function ColorScaleEditor() {
   const canvasRef = useRef(null);
@@ -2468,102 +2470,45 @@ export default function ColorScaleEditor() {
           <div className="max-w-4xl mx-auto py-8">
             <div className="flex items-center justify-between mb-8">
               <h1 className={`text-5xl font-bold font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                How to use
+                Getting Started
               </h1>
-              <button
+              <Button
                 onClick={() => setShowHowToUse(false)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all hover:opacity-80 ${
+                variant="solid"
+                size="3"
+                className={`cardboard-primary ${
                   theme === 'light'
-                    ? 'bg-neutral-900 text-white hover:bg-neutral-800'
-                    : 'bg-gray-200 text-neutral-900 hover:bg-gray-300'
+                    ? '!bg-warm-gray-1000 !text-gray-100'
+                    : '!bg-warm-gray-300 !text-gray-1200'
                 }`}
               >
                 Back to editor
-              </button>
+              </Button>
             </div>
 
-            <div className={`space-y-8 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-300'}`}>
-              <section>
-                <h2 className={`text-2xl font-bold mb-3 ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                  Getting Started
-                </h2>
-                <p className="mb-2">
-                  The Primitive Color Builder helps you create perceptually uniform color scales based on human color perception, not just mathematical interpolation.
-                </p>
-              </section>
+            <div className={`prose prose-lg max-w-none ${
+              theme === 'light'
+                ? 'prose-neutral prose-headings:text-neutral-1100 prose-p:text-neutral-900 prose-li:text-neutral-900 prose-strong:text-neutral-1100'
+                : 'prose-invert prose-headings:text-white prose-p:text-gray-300 prose-li:text-gray-300 prose-strong:text-white'
+            }`}>
+              <ReactMarkdown>
+                {howToUseMarkdown}
+              </ReactMarkdown>
+            </div>
 
-              <section>
-                <h2 className={`text-2xl font-bold mb-3 ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                  Adding Color Scales
-                </h2>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Click "Add color scale" to create a new color scale</li>
-                  <li>Choose your base color using the color picker</li>
-                  <li>Adjust the number of swatches in your scale (3-15 swatches)</li>
-                  <li>Select different color spaces (OKLCH, OKLAB, LCH, LAB, HSL) to see how they affect interpolation</li>
-                </ul>
-              </section>
-
-              <section>
-                <h2 className={`text-2xl font-bold mb-3 ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                  Understanding Color Spaces
-                </h2>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li><strong>OKLCH/OKLAB:</strong> Modern perceptually uniform color spaces (recommended)</li>
-                  <li><strong>LCH/LAB:</strong> Traditional perceptually uniform color spaces</li>
-                  <li><strong>HSL:</strong> Hue-Saturation-Lightness, familiar but not perceptually uniform</li>
-                </ul>
-              </section>
-
-              <section>
-                <h2 className={`text-2xl font-bold mb-3 ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                  Color Families
-                </h2>
-                <p className="mb-2">
-                  Generate harmonious color families based on your existing color scales:
-                </p>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Click "Add color families" to open the harmony generator</li>
-                  <li>Choose from complementary, analogous, triadic, and other color harmonies</li>
-                  <li>Preview generated colors before adding them to your palette</li>
-                </ul>
-              </section>
-
-              <section>
-                <h2 className={`text-2xl font-bold mb-3 ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                  Exporting Your Palette
-                </h2>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Click "Export" to download your color scales</li>
-                  <li>Choose from multiple export formats (CSS, JSON, Tailwind, etc.)</li>
-                  <li>Copy individual color values by clicking on swatches</li>
-                </ul>
-              </section>
-
-              <section>
-                <h2 className={`text-2xl font-bold mb-3 ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                  Tips
-                </h2>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Use OKLCH for the most perceptually uniform results</li>
-                  <li>Test your colors in both light and dark modes using the theme toggle</li>
-                  <li>Check contrast ratios to ensure accessibility</li>
-                  <li>Experiment with different harmony methods to find complementary colors</li>
-                </ul>
-              </section>
-
-              <div className="pt-8 text-center">
-                <button
-                  onClick={() => setShowHowToUse(false)}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all hover:opacity-80 ${
-                    theme === 'light'
-                      ? 'bg-neutral-900 text-white hover:bg-neutral-800'
-                      : 'bg-gray-200 text-neutral-900 hover:bg-gray-300'
-                  }`}
-                >
-                  Back to editor
-                </button>
-              </div>
+            <div className="pt-8 text-center">
+              <Button
+                onClick={() => setShowHowToUse(false)}
+                variant="solid"
+                size="3"
+                className={`cardboard-primary ${
+                  theme === 'light'
+                    ? '!bg-warm-gray-1000 !text-gray-100'
+                    : '!bg-warm-gray-300 !text-gray-1200'
+                }`}
+              >
+                Back to editor
+              </Button>
             </div>
           </div>
         ) : (
@@ -2769,7 +2714,7 @@ export default function ColorScaleEditor() {
               onClick={resetAllSettings}
               className={`cardboard-small-button px-2 py-1 text-xs ${
                 theme === 'light'
-                  ? 'text-neutral-700 hover:text-neutral-900'
+                  ? 'text-gray-900 hover:text-neutral-900'
                   : 'text-gray-500 border border-gray-1000 hover:text-gray-300'
               }`}
               title="Reset all global settings to defaults"
@@ -4332,7 +4277,7 @@ export default function ColorScaleEditor() {
                   className={`cardboard-secondary flex items-center gap-2 ${
                     theme === 'light'
                       ? '!bg-gray-400 !text-gray-1100'
-                      : '!bg-gray-1000 !text-white'
+                      : '!bg-gray-1000 !text-gray-200'
                   }`}
                 >
                   <span className="material-symbols-rounded text-[16px]">expand_more</span>
@@ -4346,8 +4291,8 @@ export default function ColorScaleEditor() {
                 size="3"
                 className={`cardboard-secondary flex items-center gap-2 ${
                   theme === 'light'
-                    ? '!bg-gray-400 !text-gray-1100'
-                    : '!bg-gray-1000 !text-white'
+                    ? '!bg-warm-gray-400 !text-gray-1100'
+                    : '!bg-warm-gray-1000 !text-gray-200'
                 }`}
                 aria-expanded={showColorFamilies}
                 aria-controls="color-families-panel"
@@ -4367,7 +4312,7 @@ export default function ColorScaleEditor() {
             size="3"
             className={`cardboard-primary ${
               theme === 'light'
-                ? '!bg-warm-gray-1000 !text-gray-100'
+                ? '!bg-warm-gray-1000 !text-gray-100 hover:!bg-warm-gray-950'
                 : '!bg-warm-gray-300 !text-gray-1200'
             }`}
           >
@@ -4404,7 +4349,7 @@ export default function ColorScaleEditor() {
                   ease: motionPresets.accordionExit.easing
                 }
               }}
-              className={`cardboard-panel rounded-xl p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-1300 border border-zinc-800'}`}
+              className={`cardboard-panel rounded-xl p-4 sm:p-6 overflow-hidden ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-1300 border border-zinc-800'}`}
               id="color-families-panel"
               role="region"
               aria-labelledby="color-families-heading"
@@ -4428,12 +4373,12 @@ export default function ColorScaleEditor() {
             <p className={`font-jetbrains-mono text-sm mb-4 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
               Quickly add common color families to your palette
             </p>
-            <div className="flex gap-3 items-end flex-wrap">
-              <div className="flex-1 min-w-[300px]">
+            <div className="flex flex-col gap-4">
+              <div className="flex-1">
                 <label className={`font-jetbrains-mono block text-xs font-medium tracking-wider mb-2 ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Select color families to generate
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
                     { name: 'Red', value: 'red', color: '#ef4444' },
                     { name: 'Rose', value: 'rose', color: '#f43f5e' },
@@ -4456,7 +4401,7 @@ export default function ColorScaleEditor() {
                   ].map((family) => (
                     <label
                       key={family.value}
-                      className={`cardboard-small-button flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                      className={`cardboard-small-button flex items-center gap-2 px-3 py-2.5 rounded-md cursor-pointer transition-colors ${
                         theme === 'light'
                           ? 'bg-white border border-gray-300 hover:bg-neutral-100'
                           : 'bg-black border border-zinc-700 hover:bg-zinc-900'
@@ -4485,7 +4430,7 @@ export default function ColorScaleEditor() {
                   ))}
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col max-w-xs gap-2">
                 <label className={`font-jetbrains-mono block text-xs font-medium tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Base color
                 </label>
@@ -4505,7 +4450,7 @@ export default function ColorScaleEditor() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-end gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch
                     checked={useColorTheory}
@@ -4578,7 +4523,7 @@ export default function ColorScaleEditor() {
                         <div className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider capitalize ${theme === 'light' ? 'text-neutral-900' : 'text-gray-400'}`}>
                           {family}
                         </div>
-                        <div className="flex gap-3 flex-wrap">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {options.map((colorData, optionIndex) => {
                             const selectionKey = `${family}-${optionIndex}`;
                             const isSelected = selectedPreviews.has(selectionKey);
@@ -4595,7 +4540,7 @@ export default function ColorScaleEditor() {
                               >
                                 <div
                                   onClick={() => togglePreviewSelection(family, optionIndex)}
-                                  className={`cardboard-small-button w-40 flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                                  className={`cardboard-small-button flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
                                     isSelected
                                       ? theme === 'light'
                                         ? 'bg-gray-200 border-2 border-gray-900'
@@ -4623,7 +4568,7 @@ export default function ColorScaleEditor() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-3 justify-end items-center">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:justify-end items-stretch sm:items-center">
                     <Button
                       onClick={cancelPreview}
                       variant="ghost"
@@ -4643,8 +4588,8 @@ export default function ColorScaleEditor() {
                       size="3"
                       className={`cardboard-secondary ${
                         theme === 'light'
-                          ? '!bg-gray-400 !text-gray-1100'
-                          : '!bg-gray-1000 !text-white'
+                          ? '!bg-warm-gray-400 !text-gray-1100'
+                          : '!bg-warm-gray-1000 !text-gray-200'
                       }`}
                     >
                       Regenerate All

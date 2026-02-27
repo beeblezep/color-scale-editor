@@ -127,7 +127,7 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 
 /* Primary Button (variant="solid") - Light mode */
 .radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-primary {
-  border: 2px solid #1c1c1c !important;
+  border: 2px solid #322f29 !important;
   border-radius: 2px !important;                     /* Crisp, not pill-shaped */
   box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.4) !important;
   transition: transform 0.07s ease, box-shadow 0.07s ease !important;
@@ -154,7 +154,7 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 .radix-themes[class*="dark"] button.rt-Button.cardboard-primary,
 [data-is-root-theme="true"][data-appearance="dark"] button.rt-Button.cardboard-primary,
 .dark .radix-themes button.rt-Button.cardboard-primary {
-  border: 2px solid #0a0a0a !important;
+  border: 2px solid #322f29 !important;
   border-radius: 2px !important;
   box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.6) !important;
   transition: transform 0.07s ease, box-shadow 0.07s ease !important;
@@ -208,7 +208,7 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 
 /* Secondary Button - Light mode */
 .radix-themes:not(.dark):not([class*="dark"]) button.rt-Button.cardboard-secondary {
-  border: 1.5px solid #888888 !important;
+  border: 1.5px solid #a8a295 !important;
   border-radius: 2px !important;
   box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.25) !important;
   transition: transform 0.07s ease, box-shadow 0.07s ease !important;
@@ -235,7 +235,7 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 .radix-themes[class*="dark"] button.rt-Button.cardboard-secondary,
 [data-is-root-theme="true"][data-appearance="dark"] button.rt-Button.cardboard-secondary,
 .dark .radix-themes button.rt-Button.cardboard-secondary {
-  border: 1.5px solid #555555 !important;
+  border: 1.5px solid #5f594d !important;
   border-radius: 2px !important;
   box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5) !important;
   transition: transform 0.07s ease, box-shadow 0.07s ease !important;
