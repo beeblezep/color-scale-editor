@@ -2470,7 +2470,7 @@ export default function ColorScaleEditor() {
           <div className="max-w-4xl mx-auto py-8">
             <div className="flex items-center justify-between mb-8">
               <h1 className={`text-5xl font-bold font-fraunces ${theme === 'light' ? 'text-neutral-1100' : 'text-white'}`}>
-                Getting Started
+                How to use
               </h1>
               <Button
                 onClick={() => setShowHowToUse(false)}
@@ -2850,11 +2850,7 @@ export default function ColorScaleEditor() {
                 onChange={(e) => setNumSwatches(Math.max(4, Math.min(20, parseInt(e.target.value) || 12)))}
                 min="4"
                 max="20"
-                className={`cardboard-input w-14 px-2 py-1 rounded text-xs font-mono ${
-                  theme === 'light'
-                    ? 'bg-white text-neutral-1100'
-                    : 'bg-black text-gray-200'
-                }`}
+                className="cardboard-input w-14 px-2 py-1 rounded text-xs font-mono"
               />
             </div>
 
@@ -2910,11 +2906,7 @@ export default function ColorScaleEditor() {
                     setSwatchBackground(value);
                   }
                 }}
-                className={`cardboard-input w-20 px-2 py-1 rounded text-xs font-mono ${
-                  theme === 'light'
-                    ? 'bg-white text-neutral-1100'
-                    : 'bg-black text-gray-200'
-                }`}
+                className="cardboard-input w-20 px-2 py-1 rounded text-xs font-mono"
               />
             </div>
 
@@ -3421,11 +3413,7 @@ export default function ColorScaleEditor() {
                             onChange={(e) => updateSwatchCountOverride(cs.id, e.target.value)}
                             min="1"
                             max="20"
-                            className={`font-jetbrains-mono w-12 px-1 py-1 rounded text-xs ${
-                              theme === 'light'
-                                ? 'bg-white border border-gray-300 text-gray-900'
-                                : 'bg-black border border-zinc-700 text-gray-200'
-                            }`}
+                            className="cardboard-input w-12 px-1 py-1 rounded text-xs font-mono"
                           />
                           {cs.swatchCountOverride !== null && (
                             <button
@@ -4392,7 +4380,7 @@ export default function ColorScaleEditor() {
                     { name: 'Teal', value: 'teal', color: '#14b8a6' },
                     { name: 'Cyan', value: 'cyan', color: '#06b6d4' },
                     { name: 'Sky', value: 'sky', color: '#0ea5e9' },
-                    { name: 'Blue', value: 'blue', color: '#a4a4a4' },
+                    { name: 'Blue', value: 'blue', color: '#3b82f6' },
                     { name: 'Indigo', value: 'indigo', color: '#6366f1' },
                     { name: 'Violet', value: 'violet', color: '#8b5cf6' },
                     { name: 'Purple', value: 'purple', color: '#a855f7' },
@@ -4422,7 +4410,7 @@ export default function ColorScaleEditor() {
                         data-checkbox-type="swatch"
                       />
                       <div
-                        className={`w-4 h-4 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-zinc-600'}`}
+                        className={`w-4 h-4 rounded-sm ${theme === 'light' ? '' : ''}`}
                         style={{ backgroundColor: family.color }}
                       />
                       <span className={`font-jetbrains-mono text-sm ${theme === 'light' ? 'text-neutral-1100' : 'text-gray-200'}`}>{family.name}</span>
@@ -4443,11 +4431,19 @@ export default function ColorScaleEditor() {
                       : 'bg-black border border-zinc-700 text-gray-200'
                   }`}
                 >
-                  {colorScales.map((cs) => (
-                    <option key={cs.id} value={cs.id}>
-                      {cs.name}
-                    </option>
-                  ))}
+                  {colorScales
+                    .filter((cs) => {
+                      // Check the base color's saturation
+                      const rgb = hexToRgb(cs.hex);
+                      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                      // Only include colors with saturation >= 5% (filters out neutral/gray colors)
+                      return hsl.s >= 0.05;
+                    })
+                    .map((cs) => (
+                      <option key={cs.id} value={cs.id}>
+                        {cs.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:self-end">
@@ -4519,7 +4515,7 @@ export default function ColorScaleEditor() {
             {/* Preview Area */}
             <div
               ref={previewPanelRef}
-              className="overflow-hidden"
+              className="overflow-y-auto"
               style={{
                 maxHeight: !isGenerating && previewColorsByFamily ? '2000px' : '0',
                 opacity: !isGenerating && previewColorsByFamily ? 1 : 0,
@@ -4569,7 +4565,7 @@ export default function ColorScaleEditor() {
                                   }`}
                                 >
                                   <div
-                                    className={`w-16 h-16 rounded ${theme === 'light' ? 'border border-gray-400' : 'border border-gray-900'}`}
+                                    className={`w-16 h-16 rounded-sm ${theme === 'light' ? '' : ''}`}
                                     style={{ backgroundColor: hex }}
                                   />
                                   {method && (

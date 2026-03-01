@@ -400,6 +400,8 @@ button.rt-CheckboxButton[data-state="unchecked"] {
   border: 1px solid rgba(0, 0, 0, 0.2) !important;
   box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.12) !important;
   transition: box-shadow 0.07s ease, border-color 0.07s ease !important;
+  background-color: white !important;
+  color: #1c1c1c !important;
 }
 
 .cardboard-input:focus {
@@ -412,6 +414,8 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 [data-is-root-theme="true"][data-appearance="dark"] .cardboard-input {
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
   box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3) !important;
+  background-color: black !important;
+  color: #e5e5e5 !important;
 }
 
 .dark .cardboard-input:focus,
