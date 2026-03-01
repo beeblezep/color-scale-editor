@@ -2704,7 +2704,7 @@ export default function ColorScaleEditor() {
         </div>
 
         {/* Global Settings - Compact Input Controls */}
-        <div className={`cardboard-panel rounded-xl p-6 mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}>
+        <div className={`cardboard-panel rounded-xl p-4 mb-3 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-black border border-zinc-800'}`}>
           {/* Header with Reset Button */}
           <div className="flex items-center justify-between mb-4">
             <h2 className={`font-jetbrains-mono text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
@@ -2850,10 +2850,10 @@ export default function ColorScaleEditor() {
                 onChange={(e) => setNumSwatches(Math.max(4, Math.min(20, parseInt(e.target.value) || 12)))}
                 min="4"
                 max="20"
-                className={`font-jetbrains-mono w-14 px-2 py-1 rounded-md text-xs focus:outline-none ${
+                className={`cardboard-input w-14 px-2 py-1 rounded text-xs font-mono ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 focus:border-zinc-600'
+                    ? 'bg-white text-neutral-1100'
+                    : 'bg-black text-gray-200'
                 }`}
               />
             </div>
@@ -2910,10 +2910,10 @@ export default function ColorScaleEditor() {
                     setSwatchBackground(value);
                   }
                 }}
-                className={`font-jetbrains-mono w-20 px-2 py-1 rounded text-xs focus:outline-none ${
+                className={`cardboard-input w-20 px-2 py-1 rounded text-xs font-mono ${
                   theme === 'light'
-                    ? 'bg-white border border-gray-300 text-neutral-1100 focus:border-cyan-600'
-                    : 'bg-black border border-zinc-700 text-gray-200 focus:border-zinc-600'
+                    ? 'bg-white text-neutral-1100'
+                    : 'bg-black text-gray-200'
                 }`}
               />
             </div>
@@ -4430,7 +4430,7 @@ export default function ColorScaleEditor() {
                   ))}
                 </div>
               </div>
-              <div className="flex flex-col max-w-xs gap-2">
+              <div className="flex flex-col gap-2 sm:self-end">
                 <label className={`font-jetbrains-mono block text-xs font-medium tracking-wider ${theme === 'light' ? 'text-neutral-900' : 'text-gray-500'}`}>
                   Base color
                 </label>
@@ -4450,7 +4450,7 @@ export default function ColorScaleEditor() {
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:self-end">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch
                     checked={useColorTheory}
@@ -4461,19 +4461,37 @@ export default function ColorScaleEditor() {
                     {useColorTheory ? 'Color theory' : 'AI-based'}
                   </span>
                 </label>
-                <Button
-                  onClick={generateHarmoniousColors}
-                  disabled={selectedHarmoniousFamilies.size === 0}
-                  variant="solid"
-                  size="3"
-                  className={`cardboard-primary ${
-                    theme === 'light'
-                ? '!bg-warm-gray-1000 !text-gray-100'
-                : '!bg-warm-gray-300 !text-gray-1200'
-                  }`}
-                >
-                  Preview colors
-                </Button>
+                {selectedHarmoniousFamilies.size === 0 ? (
+                  <Tooltip content="Select a color family to preview colors">
+                    <Button
+                      onClick={generateHarmoniousColors}
+                      disabled={true}
+                      variant="solid"
+                      size="3"
+                      className={`cardboard-primary ${
+                        theme === 'light'
+                    ? '!bg-warm-gray-1000 !text-gray-100'
+                    : '!bg-warm-gray-300 !text-gray-1200'
+                      }`}
+                    >
+                      Preview colors
+                    </Button>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    onClick={generateHarmoniousColors}
+                    disabled={false}
+                    variant="solid"
+                    size="3"
+                    className={`cardboard-primary ${
+                      theme === 'light'
+                  ? '!bg-warm-gray-1000 !text-gray-100'
+                  : '!bg-warm-gray-300 !text-gray-1200'
+                    }`}
+                  >
+                    Preview colors
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -4594,19 +4612,37 @@ export default function ColorScaleEditor() {
                     >
                       Regenerate All
                     </Button>
-                    <Button
-                      onClick={applyPreviewColors}
-                      disabled={selectedPreviews.size === 0}
-                      variant="solid"
-                      size="3"
-                      className={`cardboard-primary ${
-                        theme === 'light'
-                          ? '!bg-warm-gray-1000 !text-gray-100'
-                          : '!bg-warm-gray-300 !text-gray-1200'
-                      }`}
-                    >
-                      Add Selected ({selectedPreviews.size})
-                    </Button>
+                    {selectedPreviews.size === 0 ? (
+                      <Tooltip content="Select a color swatch to add a color scale to your palette">
+                        <Button
+                          onClick={applyPreviewColors}
+                          disabled={true}
+                          variant="solid"
+                          size="3"
+                          className={`cardboard-primary ${
+                            theme === 'light'
+                              ? '!bg-warm-gray-1000 !text-gray-100'
+                              : '!bg-warm-gray-300 !text-gray-1200'
+                          }`}
+                        >
+                          Add Selected ({selectedPreviews.size})
+                        </Button>
+                      </Tooltip>
+                    ) : (
+                      <Button
+                        onClick={applyPreviewColors}
+                        disabled={false}
+                        variant="solid"
+                        size="3"
+                        className={`cardboard-primary ${
+                          theme === 'light'
+                            ? '!bg-warm-gray-1000 !text-gray-100'
+                            : '!bg-warm-gray-300 !text-gray-1200'
+                        }`}
+                      >
+                        Add Selected ({selectedPreviews.size})
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -4621,7 +4657,7 @@ export default function ColorScaleEditor() {
       {/* Credit text */}
       <div className="text-center py-8">
         <p className={`text-xs ${theme === 'light' ? 'text-neutral-700' : 'text-gray-500'}`}>
-          Created with love by Craig Mertan using Claude Code, React, and Radix.
+          Made with <span className="material-symbols-rounded inline-flex items-center text-[12px] mx-0.5 text-rose-600/50" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span> by Craig Mertan using Claude Code, React, and Radix.
         </p>
       </div>
     </div>

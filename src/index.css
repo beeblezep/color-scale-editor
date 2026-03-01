@@ -397,22 +397,26 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 /* Input fields */
 .cardboard-input {
   border-radius: 2px !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
   box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.12) !important;
-  transition: box-shadow 0.07s ease !important;
+  transition: box-shadow 0.07s ease, border-color 0.07s ease !important;
 }
 
 .cardboard-input:focus {
+  border-color: rgba(0, 0, 0, 0.3) !important;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Dark mode inputs */
 .dark .cardboard-input,
 [data-is-root-theme="true"][data-appearance="dark"] .cardboard-input {
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
   box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3) !important;
 }
 
 .dark .cardboard-input:focus,
 [data-is-root-theme="true"][data-appearance="dark"] .cardboard-input:focus {
+  border-color: rgba(255, 255, 255, 0.25) !important;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4) !important;
 }
 
@@ -486,17 +490,79 @@ button.rt-CheckboxButton[data-state="unchecked"] {
 }
 
 /* ============================================================
-   Segmented Control Styling - JetBrains Mono font
+   Segmented Control Styling - JetBrains Mono font + Cardboard border radius
    ============================================================ */
 
-/* Apply JetBrains Mono to all Segmented Control items */
-.rt-SegmentedControlRoot {
+/* Apply JetBrains Mono and cardboard border radius to Segmented Control */
+.rt-SegmentedControlRoot,
+.rt-SegmentedControlRoot *,
+.rt-SegmentedControlRoot::before,
+.rt-SegmentedControlRoot::after {
   font-family: 'JetBrains Mono', monospace !important;
+  border-radius: 2px !important;
 }
 
-.rt-SegmentedControlItem {
-  font-family: 'JetBrains Mono', monospace !important;
+/* Cardboard styling for segmented control container - Light mode */
+.rt-SegmentedControlRoot {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Cardboard styling for segmented control container - Dark mode */
+.dark .rt-SegmentedControlRoot,
+[data-is-root-theme="true"][data-appearance="dark"] .rt-SegmentedControlRoot {
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.rt-SegmentedControlItem,
+.rt-SegmentedControlItem::before,
+.rt-SegmentedControlItem::after {
+  border-radius: 2px !important;
   font-weight: 500 !important;
+}
+
+/* Active/selected state - Light mode */
+.rt-SegmentedControlItem[data-state="active"],
+.rt-SegmentedControlItem[data-state="active"] *,
+.rt-SegmentedControlItem[data-state="active"]::before,
+.rt-SegmentedControlItem[data-state="active"]::after {
+  border-radius: 2px !important;
+}
+
+/* Active/selected state indicator - add subtle shadow - Light mode */
+.rt-SegmentedControlIndicator {
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Active/selected state indicator - Dark mode */
+.dark .rt-SegmentedControlIndicator,
+[data-is-root-theme="true"][data-appearance="dark"] .rt-SegmentedControlIndicator {
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Inactive state */
+.rt-SegmentedControlItem[data-state="inactive"],
+.rt-SegmentedControlItem[data-state="inactive"] *,
+.rt-SegmentedControlItem[data-state="inactive"]::before,
+.rt-SegmentedControlItem[data-state="inactive"]::after {
+  border-radius: 2px !important;
+}
+
+/* Indicator (sliding background) border radius */
+.rt-SegmentedControlIndicator,
+.rt-SegmentedControlIndicator *,
+.rt-SegmentedControlIndicator::before,
+.rt-SegmentedControlIndicator::after {
+  border-radius: 2px !important;
+}
+
+/* Target any button or label elements inside */
+.rt-SegmentedControlRoot button,
+.rt-SegmentedControlRoot label,
+.rt-SegmentedControlRoot span,
+.rt-SegmentedControlRoot div {
+  border-radius: 2px !important;
 }
 
 /* ============================================================
